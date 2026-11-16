@@ -61,6 +61,25 @@ npm run build
 npm start                   # serves the app and API on http://127.0.0.1:8787
 ```
 
+### Put it online (Vercel)
+
+The repository is ready for Vercel: `vercel.json` builds the web app and runs the API (`server/`) as one function through `api/index.mjs`. In the Vercel project, under Settings → Environment Variables, add:
+
+| Variable | Value |
+| --- | --- |
+| `ANTHROPIC_API_KEY` | Your Claude API key |
+| `ANTHROPIC_WORKSPACE_ID` | Only for a user-scoped key (`sk-ant-usr-…`): the `wrkspc_…` ID |
+| `APP_PASSWORD` | An access code you choose. **Required.** |
+
+Then redeploy. Without `APP_PASSWORD` the agent stays off on a hosted copy, on purpose: a public address must not let strangers spend your credit. With it set, the site asks each visitor for the code once.
+
+What is different when hosted:
+
+- **Projects are saved in the visitor's browser**, not on the server, because Vercel has no lasting disk. They do not follow you to another browser or device.
+- **The generation cache does not last.** It lives in temporary storage that Vercel clears, so a repeated request may be paid for again.
+- **Requests are cut off at 300 seconds** (`maxDuration` in `vercel.json`; raise it to 800 on a Pro plan). The model effort defaults to `low` to fit. A large design can still time out, and a timed-out result is lost. Long designs are safer run on your own computer.
+- **Uploads are limited to about 4.5 MB** by Vercel. Firmware inspection with rea is not available.
+
 ### Firmware stage (optional)
 
 ```bash

@@ -1,3 +1,4 @@
+import { apiFetch } from '../lib/api';
 import { FileUp } from 'lucide-react';
 import { useRef, useState } from 'react';
 
@@ -43,7 +44,7 @@ export default function Firmware({ td, rea }: Props) {
       const body = new FormData();
       body.append('file', file);
       body.append('teardown', JSON.stringify({ parts: td.parts.map(({ id, name, refDes, candidates }) => ({ id, name, refDes, candidates })) }));
-      const res = await fetch('/api/firmware', { method: 'POST', body });
+      const res = await apiFetch('/api/firmware', { method: 'POST', body });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json.error || `The server answered ${res.status}.`);
       setResult(json as Result);

@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { randomBytes } from 'node:crypto';
+import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { unlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -20,8 +20,13 @@ import { BRIEF_TOOL, TEARDOWN_TOOL } from './schema.mjs';
 
 const PORT = Number(process.env.PORT || 8787);
 const MODEL = process.env.CLAUDE_MODEL || 'claude-fable-5-2';
+// Hosted on Vercel: no disk that lasts, a time limit on every request, and a public address.
+const HOSTED = Boolean(process.env.VERCEL);
+// The access code that protects the paid endpoints. Required when hosted, optional on this computer.
+const PASSWORD = (process.env.APP_PASSWORD || '').trim();
 // How hard the model thinks on a full design. Medium is roughly twice as fast as high on this task.
-const EFFORT = ['low', 'medium', 'high', 'xhigh', 'max'].includes(process.env.CLAUDE_EFFORT) ? process.env.CLAUDE_EFFORT : 'medium';
+// A hosted copy defaults to low, to finish inside the host's time limit.
+const EFFORT = ['low', 'medium', 'high', 'xhigh', 'max'].includes(process.env.CLAUDE_EFFORT) ? process.env.CLAUDE_EFFORT : HOSTED ? 'low' : 'medium';
 const MAX_IMAGES = 6;
 
 // Requests that are running now, by cache key. A second identical request waits for the first
@@ -63,8 +68,35 @@ const client = () =>
 const app = express();
 app.use(express.json({ limit: '40mb' }));
 
+// Anything that spends Claude credit needs the access code. Without a code set, a hosted copy
+// refuses outright: a public address must never be an open tap on the owner's key.
+const PAID = new Set(['/api/brief', '/api/analyze', '/api/build', '/api/firmware']);
+app.use((req, res, next) => {
+  if (!PAID.has(req.path) || (!HOSTED && !PASSWORD)) return next();
+  if (!PASSWORD) {
+    res.status(503).json({ error: 'The agent is switched off on this site: no access code is set. The owner adds APP_PASSWORD in the hosting settings.' });
+    return;
+  }
+  const given = Buffer.from(String(req.get('x-app-password') ?? ''));
+  const want = Buffer.from(PASSWORD);
+  if (given.length !== want.length || !timingSafeEqual(given, want)) {
+    res.status(401).json({ error: 'That access code is not right.' });
+    return;
+  }
+  next();
+});
+// A hosted copy has no lasting disk and one shared server: projects stay in each visitor's browser.
+app.use('/api/projects', (_req, res, next) => {
+  if (HOSTED) res.status(501).json({ error: 'Projects are kept in the browser on this site.' });
+  else next();
+});
+
 app.get('/api/status', async (_req, res) => {
-  res.json({ hasKey: hasKey(), model: MODEL, effort: EFFORT, stored: await cacheStats(), rea: await reaStatus() });
+  res.json({
+    hasKey: hasKey(), model: MODEL, effort: EFFORT, stored: await cacheStats(),
+    hosted: HOSTED, locked: HOSTED && !PASSWORD,
+    rea: HOSTED ? { available: false, command: 'rea' } : await reaStatus(),
+  });
 });
 
 function imageBlocks(images) {
@@ -407,12 +439,17 @@ app.use((err, _req, res, next) => {
 
 // In production the same server also serves the built front end.
 const dist = join(dirname(fileURLToPath(import.meta.url)), '..', 'dist');
-if (existsSync(dist)) {
+if (!HOSTED && existsSync(dist)) {
   app.use(express.static(dist));
   app.get(/^(?!\/api\/).*/, (_req, res) => res.sendFile(join(dist, 'index.html')));
 }
 
-app.listen(PORT, '127.0.0.1', () => {
-  console.log(`Teardown Lab API on http://127.0.0.1:${PORT}`);
-  console.log(hasKey() ? `Claude model: ${MODEL}` : 'No ANTHROPIC_API_KEY set: analysis is disabled, the sample teardown still works.');
-});
+// On Vercel the platform calls the exported app; on this computer it listens on a port.
+if (!HOSTED) {
+  app.listen(PORT, '127.0.0.1', () => {
+    console.log(`Teardown Lab API on http://127.0.0.1:${PORT}`);
+    console.log(hasKey() ? `Claude model: ${MODEL}` : 'No ANTHROPIC_API_KEY set: analysis is disabled, the sample teardown still works.');
+  });
+}
+
+export default app;

@@ -1,3 +1,4 @@
+import { apiFetch, setHosted } from './lib/api';
 import { ChevronDown, Download, Pause, Play, Plus, RotateCcw, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 
@@ -56,7 +57,7 @@ const PENDING = 'teardown-lab:building';
 const newId = () => `p-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 import { KIND_LABEL, type ConnectionKind, type Part, type Teardown, type Vec3 } from './lib/types';
 
-interface Status { hasKey: boolean; model: string; stored?: number; rea: ReaStatus }
+interface Status { hasKey: boolean; model: string; stored?: number; hosted?: boolean; locked?: boolean; rea: ReaStatus }
 type Tab = TabId;
 
 const TABS: { id: Tab; label: string }[] = [
@@ -121,7 +122,7 @@ export default function App() {
   const [saved, setSaved] = useState<Saved[]>([]);
   const [saveNote, setSaveNote] = useState('');
   const refreshSaved = useCallback(() => {
-    fetch('/api/projects').then((r) => (r.ok ? r.json() : { projects: [] })).then((j) => setSaved(j.projects ?? [])).catch(() => {});
+    apiFetch('/api/projects').then((r) => (r.ok ? r.json() : { projects: [] })).then((j) => setSaved(j.projects ?? [])).catch(() => {});
   }, []);
   useEffect(refreshSaved, [refreshSaved]);
   const patch = useCallback((p: Partial<Project>) => setProject((prev) => (prev ? { ...prev, ...p } : prev)), []);
@@ -135,9 +136,9 @@ export default function App() {
   explodeRef.current = explode;
 
   useEffect(() => {
-    fetch('/api/status')
+    apiFetch('/api/status')
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
-      .then((s: Status) => setStatus(s))
+      .then((s: Status) => { setHosted(Boolean(s.hosted)); setStatus(s); if (s.hosted) refreshSaved(); })
       .catch(() => setStatusFailed(true));
   }, []);
 
@@ -210,7 +211,7 @@ export default function App() {
 
   const post = useCallback(async (url: string, body: unknown) => {
     try {
-      const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const res = await apiFetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json.error || `The server answered ${res.status}.`);
       return json;
@@ -225,7 +226,7 @@ export default function App() {
 
   /** Swarm build: reads the stream of events and grows the live model as each agent finishes. */
   const buildWithSwarm = useCallback(async (description: string, title: string): Promise<{ teardown: Teardown; cached: boolean }> => {
-    const res = await fetch('/api/build', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ description }) })
+    const res = await apiFetch('/api/build', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ description }) })
       .catch(() => { throw new Error('The local server is not reachable. Start it with “npm run dev” and try again.'); });
     if (!res.ok || !res.body) throw new Error((await res.json().catch(() => ({}))).error || `The server answered ${res.status}.`);
     type Zone = { id: string; name: string; center: Vec3; size: Vec3 };
@@ -372,7 +373,7 @@ export default function App() {
     try {
       const form = new FormData();
       files.forEach((f) => form.append('files', f, f.name));
-      const res = await fetch('/api/board-import', { method: 'POST', body: form });
+      const res = await apiFetch('/api/board-import', { method: 'POST', body: form });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json.error || `The server answered ${res.status}.`);
       const board = json.board as ImportedBoard;
@@ -441,7 +442,7 @@ export default function App() {
   useEffect(() => {
     if (!project || (!project.brief && !project.board && !td) || project.phase === 'briefing' || project.phase === 'designing') return;
     const t = window.setTimeout(() => {
-      fetch(`/api/projects/${project.id}`, {
+      apiFetch(`/api/projects/${project.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -459,7 +460,7 @@ export default function App() {
 
   const openSaved = useCallback(async (id: string) => {
     try {
-      const res = await fetch(`/api/projects/${id}`);
+      const res = await apiFetch(`/api/projects/${id}`);
       if (!res.ok) throw new Error();
       const doc = await res.json() as { project: Project | null; teardown: Teardown | null; original: Teardown | null };
       const next = doc.teardown;
@@ -496,7 +497,8 @@ export default function App() {
     setExportOpen(false);
   };
 
-  const canAnalyse = Boolean(status?.hasKey);
+  const canAnalyse = Boolean(status?.hasKey) && !status?.locked;
+  const onThisComputer = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(window.location.hostname);
 
   return (
     <div className="app">
@@ -659,7 +661,7 @@ export default function App() {
                         aria-label={`Delete ${p.title}`}
                         onClick={() => {
                           if (window.confirm(`Delete “${p.title}” from this computer? This cannot be undone.`)) {
-                            void fetch(`/api/projects/${p.id}`, { method: 'DELETE' }).then(refreshSaved);
+                            void apiFetch(`/api/projects/${p.id}`, { method: 'DELETE' }).then(refreshSaved);
                           }
                         }}
                       >
@@ -673,14 +675,25 @@ export default function App() {
 
             {statusFailed && (
               <p className="callout" role="status">
-                The local API is not running, so the agent is off. Start both parts with <code>npm run dev</code>. The
-                sample still works.
+                {onThisComputer
+                  ? <>The local API is not running, so the agent is off. Start both parts with <code>npm run dev</code>. The sample still works.</>
+                  : <>The API of this site is not answering, so the agent is off. The sample still works. If you run this site, check the deployment logs.</>}
               </p>
+            )}
+            {status?.locked && (
+              <p className="callout" role="status">
+                The agent is switched off on this site because no access code is set. If you run this site, add
+                {' '}<code>APP_PASSWORD</code> in its settings and redeploy. The sample works without it.
+              </p>
+            )}
+            {status?.hosted && !status.locked && status.hasKey && (
+              <p className="hint">This is a hosted copy. The agent asks for the access code once. Your projects are kept in this browser.</p>
             )}
             {status && !status.hasKey && (
               <p className="callout" role="status">
-                No Claude API key is set, so the agent is off. Put <code>ANTHROPIC_API_KEY=…</code> in the <code>.env</code>
-                {' '}file and restart. The sample works without it.
+                {onThisComputer
+                  ? <>No Claude API key is set, so the agent is off. Put <code>ANTHROPIC_API_KEY=…</code> in the <code>.env</code> file and restart. The sample works without it.</>
+                  : <>No Claude API key is set on this site, so the agent is off. If you run it, add <code>ANTHROPIC_API_KEY</code> in its settings and redeploy. The sample works without it.</>}
               </p>
             )}
           </section>

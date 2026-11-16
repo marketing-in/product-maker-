@@ -10,7 +10,8 @@ import { fileURLToPath } from 'node:url';
 //
 // The folder is in .gitignore. Delete a file to forget it.
 
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', 'data');
+// A hosted copy can only write to /tmp, which is emptied whenever the server restarts.
+const ROOT = process.env.VERCEL ? '/tmp/teardown-lab-data' : join(dirname(fileURLToPath(import.meta.url)), '..', 'data');
 const GEN = join(ROOT, 'generations');
 const PROJECTS = join(ROOT, 'projects');
 const ID = /^[a-z0-9][a-z0-9-]{5,63}$/;

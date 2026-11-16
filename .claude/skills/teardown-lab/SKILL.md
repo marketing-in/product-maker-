@@ -39,6 +39,7 @@ The owner's reference for the experience is Flux (flux.ai): agent chat on the le
 | 16 | The swarm should look like the Chrome-extension effect where lots of cursors arrive and build the page | Agent cursors in the live build: `AgentCursor` and the cursor loop in `src/components/Viewer3D.tsx`, `.cur` styles, cursors derived from the zones in `src/App.tsx`. New parts pop in with a stagger. Our own cursor design; no other product's artwork. |
 | 17 | In the simulator, make the product do what it is: if it moves, make it movable; if it is a camera, make the camera work | `src/lib/abilities.ts` detects drive (wheels + motor), spinners (fans, propellers) and cameras. `Simulator.tsx`: Drive panel (D-pad, arrow keys, W A S D), drive loop, `CameraView` (test pattern or the user's webcam, local only). `Viewer3D` takes a `motion` ref: moves the product over a floor grid and turns wheels. Add new functions the same way: detect in `abilities.ts`, panel in `Simulator.tsx`. |
 | 18 | The board must show its copper lines | `src/lib/route.ts`: a grid autorouter (two layers, 45 degree steps, vias, power first). Traces are drawn in the Bare board layout, on the 3D board face, and written to the Gerber and KiCad exports. Always say it is an autorouted first pass, not the original routing and not rule-checked. |
+| 19 | Push to git; make the Vercel deployment work | Remote `origin` is `github.com/marketing-in/product-maker-` (linked to a Lovable project). `vercel.json` + `api/index.mjs` run the Express app as a Vercel function. Hosted rules in `server/index.mjs`: paid endpoints need `APP_PASSWORD` and refuse when it is unset; `/api/projects` is off and `src/lib/api.ts` keeps projects in the browser. |
 
 ## Outside repos the owner named, and how each is used
 
@@ -65,6 +66,7 @@ The owner's reference for the experience is Flux (flux.ai): agent chat on the le
 
 - Be honest about limits. Board copper is an autorouted first pass with typical pads, not the original routing. Fit, mould and thermal numbers are estimates. Never present an estimate as a measurement.
 - State what was not tested (KiCad and Blender files, anything not opened in a real program).
+- A hosted copy must never expose the owner's API key to the public: keep the `APP_PASSWORD` gate on every endpoint that calls Claude. Vercel needs `ANTHROPIC_API_KEY`, `ANTHROPIC_WORKSPACE_ID` (user-scoped keys) and `APP_PASSWORD` set by the owner in its settings; never commit them.
 - Never put the API key or workspace ID in code, logs, docs or this file. They live only in `.env`, which is git-ignored.
 - Do not copy another product's code, artwork or brand.
 

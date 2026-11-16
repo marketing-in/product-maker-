@@ -1,3 +1,4 @@
+import { apiFetch } from '../lib/api';
 import { Download } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
@@ -51,7 +52,7 @@ export default function BareBoard({ td, selectedId, onSelect }: Props) {
     let live = true;
     setFab(null);
     setFabError('');
-    fetch('/api/board-render', {
+    apiFetch('/api/board-render', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ files: buildGerberSet(current, td.product.name) }),
