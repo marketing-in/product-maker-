@@ -1,0 +1,36 @@
+{
+  "name": "teardown-lab",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Describe or photograph a product and get a part-by-part teardown, a 3D exploded view with wiring and power flow, and Blender / CAD exports.",
+  "scripts": {
+    "dev": "concurrently -n api,web -c gray,blue \"node --watch server/index.mjs\" \"vite\"",
+    "build": "tsc --noEmit && vite build",
+    "start": "node server/index.mjs",
+    "typecheck": "tsc --noEmit",
+    "design:scan": "npx impeccable detect src"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.8.0",
+    "@fontsource/ibm-plex-mono": "^5.1.0",
+    "@fontsource/ibm-plex-sans": "^5.1.0",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.0",
+    "lucide-react": "^0.460.0",
+    "multer": "^1.4.5-lts.1",
+    "pcb-stackup": "^4.2.8",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "three": "^0.170.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@types/three": "^0.170.0",
+    "@vitejs/plugin-react": "^4.3.3",
+    "concurrently": "^9.1.0",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.11"
+  }
+}
