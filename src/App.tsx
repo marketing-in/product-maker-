@@ -488,9 +488,34 @@ export default function App() {
 
   const closeProject = () => { setTd(null); setLive(null); setProject(null); setError(''); setSaveNote(''); refreshSaved(); };
 
+  const [working, setWorking] = useState('');
   const exportAs = (kind: ExportKind) => {
     if (!td) return;
     const base = slug(td.product.name);
+    if (kind === 'everything' || kind === 'report') {
+      setExportOpen(false);
+      if (working) return;
+      // Loaded only when asked for: the PDF library is large.
+      setWorking(kind === 'report' ? 'Writing the product report' : 'Preparing the download');
+      void (async () => {
+        try {
+          if (kind === 'report') {
+            const { buildReport } = await import('./lib/report');
+            downloadBytes(`${base}-report.pdf`, await buildReport(td), 'application/pdf');
+          } else {
+            const { buildEverything } = await import('./lib/exportAll');
+            const out = await buildEverything(td, setWorking);
+            downloadBytes(out.name, out.bytes, 'application/zip');
+          }
+        } catch (err) {
+          console.error('[export]', err);
+          window.alert(`The download could not be made: ${(err as Error).message}`);
+        } finally {
+          setWorking('');
+        }
+      })();
+      return;
+    }
     if (kind === 'step') download(`${base}.step`, buildStep(td, 0), 'model/step');
     if (kind === 'step-exploded') download(`${base}-exploded.step`, buildStep(td, 1), 'model/step');
     if (kind === 'blender') download(`${base}-blender.py`, buildBlenderScript(td), 'text/x-python');
@@ -536,6 +561,7 @@ export default function App() {
         )}
         <div className="topbar-actions">
           {saveNote && (td || project) && <span className="save-note" role="status">{saveNote}</span>}
+          {working && <span className="save-note" role="status">{working}…</span>}
           {td && (
             <div className="menu" ref={exportRef}>
               <button
@@ -551,6 +577,13 @@ export default function App() {
               </button>
               {exportOpen && (
                 <div className="menu-pop" role="menu">
+                  <button type="button" role="menuitem" onClick={() => exportAs('everything')}>
+                    <span><strong>Everything</strong>: report, CAD, boards, data</span><span className="ext">.zip</span>
+                  </button>
+                  <button type="button" role="menuitem" onClick={() => exportAs('report')}>
+                    <span>Product report</span><span className="ext">.pdf</span>
+                  </button>
+                  <hr className="menu-rule" />
                   <button type="button" role="menuitem" onClick={() => exportAs('step')}>
                     <span>CAD model, assembled</span><span className="ext">.step</span>
                   </button>
@@ -895,7 +928,7 @@ export default function App() {
               {tab === 'run' && <Simulator td={td} selectedId={selectedId} onSelect={setSelectedId} />}
               {tab === 'plan' && project?.brief && <Plan brief={project.brief} td={td} designing={false} />}
               {tab === 'plan' && project?.board && <BoardPreview board={project.board} designing={false} />}
-              {tab === 'make' && <Make td={td} checks={checks} onOpen={setTab} onExport={exportAs} />}
+              {tab === 'make' && <Make td={td} checks={checks} onOpen={setTab} onExport={exportAs} working={working} />}
               {tab === 'guide' && <Guide td={td} onOpen={setTab} />}
               {tab === 'arch' && <Architecture td={td} selectedId={selectedId} onSelect={setSelectedId} />}
               {tab === 'board' && <BareBoard td={td} selectedId={selectedId} onSelect={setSelectedId} />}

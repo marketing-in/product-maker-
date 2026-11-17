@@ -5,7 +5,7 @@
 //
 // Writes screenshots and downloads to outDir (default: a temp folder) and exits 1 on any failure.
 import { spawn } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -296,6 +296,21 @@ await go('/#sample:guide');
 await js(`[...document.querySelectorAll('.steps .link')].find((b) => b.textContent === 'Simulator')?.click()`);
 await sleep(600);
 ok((await js(`document.querySelector('.tabs [aria-selected="true"]')?.textContent`)) === 'Simulator', 'guide: link opens the Simulator tab');
+
+// The two big downloads: the product report and the everything zip.
+where = 'sample › make › report and everything';
+await go('/#sample:make');
+for (const [label, ext, magic] of [['Download the report', '.pdf', '%PDF'], ['Download everything', '.zip', 'PK']]) {
+  const had = new Set(readdirSync(DL));
+  ok(await click(label), `make: "${label}" button`);
+  let got = null;
+  for (let i = 0; i < 100 && !got; i++) { await sleep(200); got = readdirSync(DL).find((f) => !had.has(f) && f.endsWith(ext)); }
+  if (ok(got, `make: "${label}" saves a ${ext} file`)) {
+    const head = readFileSync(join(DL, got)).subarray(0, 4).toString('latin1');
+    ok(head.startsWith(magic), `make: ${got} is a real ${ext} file`);
+    ok(statSync(join(DL, got)).size > 50000, `make: ${got} has content (${Math.round(statSync(join(DL, got)).size / 1024)} kB)`);
+  }
+}
 
 // Make tab: the downloads work.
 where = 'sample › make';

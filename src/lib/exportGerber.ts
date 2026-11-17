@@ -65,7 +65,8 @@ function outline(l: Layer, f: Footprint, grow = 0) {
   l.line([[f.x - hw, f.y - hh], [f.x + hw, f.y - hh], [f.x + hw, f.y + hh], [f.x - hw, f.y + hh], [f.x - hw, f.y - hh]]);
 }
 
-export interface GerberFile { name: string; text: string }
+/** A file to put in a zip: text, or bytes for a PDF or a picture. */
+export interface GerberFile { name: string; text: string; data?: Uint8Array }
 
 export function buildGerberSet(b: BoardModel, product: string): GerberFile[] {
   const base = slug(`${product}-${b.part.refDes ?? b.part.id}`);
@@ -203,7 +204,7 @@ export function zip(files: GerberFile[]): Uint8Array {
   let offset = 0;
   for (const f of files) {
     const name = enc.encode(f.name);
-    const data = enc.encode(f.text);
+    const data = f.data ?? enc.encode(f.text);
     const crc = crc32(data);
     const local = new DataView(new ArrayBuffer(30));
     local.setUint32(0, 0x04034b50, true);
@@ -227,6 +228,70 @@ export function zip(files: GerberFile[]): Uint8Array {
     dir.setUint32(42, offset, true);
     central.push(new Uint8Array(dir.buffer), name);
     offset += 30 + name.length + data.length;
+  }
+  const dirSize = central.reduce((s, c) => s + c.length, 0);
+  const end = new DataView(new ArrayBuffer(22));
+  end.setUint32(0, 0x06054b50, true);
+  end.setUint16(8, files.length, true);
+  end.setUint16(10, files.length, true);
+  end.setUint32(12, dirSize, true);
+  end.setUint32(16, offset, true);
+  const all = [...chunks, ...central, new Uint8Array(end.buffer)];
+  const out = new Uint8Array(all.reduce((s, c) => s + c.length, 0));
+  let at = 0;
+  for (const c of all) { out.set(c, at); at += c.length; }
+  return out;
+}
+
+/** Deflates bytes with the browser's own compressor, or returns null where there is none. */
+async function deflate(data: Uint8Array): Promise<Uint8Array | null> {
+  if (typeof CompressionStream === 'undefined') return null;
+  try {
+    const stream = new Blob([data as BlobPart]).stream().pipeThrough(new CompressionStream('deflate-raw'));
+    return new Uint8Array(await new Response(stream).arrayBuffer());
+  } catch {
+    return null;
+  }
+}
+
+/** Like zip(), but compressed: text files such as STEP models shrink to a fraction. */
+export async function zipCompressed(files: GerberFile[]): Promise<Uint8Array> {
+  const enc = new TextEncoder();
+  const chunks: Uint8Array[] = [];
+  const central: Uint8Array[] = [];
+  let offset = 0;
+  for (const f of files) {
+    const name = enc.encode(f.name);
+    const raw = f.data ?? enc.encode(f.text);
+    const crc = crc32(raw);
+    // Pictures and PDFs are already compressed; keep whichever is smaller.
+    const packed = await deflate(raw);
+    const useDeflate = packed !== null && packed.length < raw.length;
+    const body = useDeflate ? packed! : raw;
+    const method = useDeflate ? 8 : 0;
+    const local = new DataView(new ArrayBuffer(30));
+    local.setUint32(0, 0x04034b50, true);
+    local.setUint16(4, 20, true);
+    local.setUint16(6, 0x0800, true);
+    local.setUint16(8, method, true);
+    local.setUint32(14, crc, true);
+    local.setUint32(18, body.length, true);
+    local.setUint32(22, raw.length, true);
+    local.setUint16(26, name.length, true);
+    chunks.push(new Uint8Array(local.buffer), name, body);
+    const dir = new DataView(new ArrayBuffer(46));
+    dir.setUint32(0, 0x02014b50, true);
+    dir.setUint16(4, 20, true);
+    dir.setUint16(6, 20, true);
+    dir.setUint16(8, 0x0800, true);
+    dir.setUint16(10, method, true);
+    dir.setUint32(16, crc, true);
+    dir.setUint32(20, body.length, true);
+    dir.setUint32(24, raw.length, true);
+    dir.setUint16(28, name.length, true);
+    dir.setUint32(42, offset, true);
+    central.push(new Uint8Array(dir.buffer), name);
+    offset += 30 + name.length + body.length;
   }
   const dirSize = central.reduce((s, c) => s + c.length, 0);
   const end = new DataView(new ArrayBuffer(22));

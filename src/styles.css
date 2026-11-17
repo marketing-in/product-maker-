@@ -525,6 +525,12 @@ input[type='file'] { font-size: 0.8125rem; padding: 0.5rem; border: 1px dashed v
 .fit-legend li { display: flex; align-items: center; gap: 0.35rem; }
 @media (max-width: 820px) { .fit-3d { height: 20rem; } }
 
+.make-hero { display: grid; grid-template-columns: repeat(auto-fill, minmax(19rem, 1fr)); gap: 0.75rem; align-items: start; }
+.card-hero { border-color: var(--ink-3); }
+.card-hero h3 { font-size: 1rem; }
+.menu-rule { border: 0; border-top: 1px solid var(--rule); margin: 0.3rem 0; }
+.menu-pop strong { font-weight: 600; }
+
 /* ---------- saved projects ---------- */
 
 .saved { display: grid; gap: 0.4rem; }

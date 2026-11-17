@@ -24,11 +24,11 @@ export function Checks({ checks, onOpen, compact = false }: { checks: Check[]; o
   );
 }
 
-export type ExportKind = 'step' | 'step-exploded' | 'blender' | 'gerber' | 'pcb-project' | 'bom' | 'json';
+export type ExportKind = 'everything' | 'report' | 'step' | 'step-exploded' | 'blender' | 'gerber' | 'pcb-project' | 'bom' | 'json';
 
-interface MakeProps { td: Teardown; checks: Check[]; onOpen: (tab: TabId) => void; onExport: (kind: ExportKind) => void }
+interface MakeProps { td: Teardown; checks: Check[]; onOpen: (tab: TabId) => void; onExport: (kind: ExportKind) => void; working?: string }
 
-export function Make({ td, checks, onOpen, onExport }: MakeProps) {
+export function Make({ td, checks, onOpen, onExport, working = '' }: MakeProps) {
   const t = tally(checks);
   const cost = useMemo(() => {
     const rows = CATEGORY_ORDER.map((cat) => {
@@ -43,7 +43,7 @@ export function Make({ td, checks, onOpen, onExport }: MakeProps) {
 
   const files: { kind: ExportKind; title: string; ext: string; text: string; show: boolean }[] = [
     { kind: 'pcb-project', title: 'Board project', ext: '.zip', text: 'KiCad board file, Gerbers, drill and placement files, and a Kitspace parts list. For redesigning and routing the board.', show: hasBoard },
-    { kind: 'gerber', title: 'Gerber set', ext: '.zip', text: 'Fabrication layers for every board. No copper routing yet.', show: hasBoard },
+    { kind: 'gerber', title: 'Gerber set', ext: '.zip', text: 'Fabrication layers for every board, with the autorouted copper.', show: hasBoard },
     { kind: 'step', title: 'CAD model', ext: '.step', text: 'Every part as a named solid. Opens in FreeCAD, Fusion, SolidWorks and Onshape. For the housing and tooling.', show: true },
     { kind: 'step-exploded', title: 'CAD model, exploded', ext: '.step', text: 'The same model pulled apart, for assembly drawings.', show: true },
     { kind: 'blender', title: 'Realistic render', ext: '.py', text: 'A Blender scene with materials, lights and a camera. Press F12 for a product shot.', show: true },
@@ -59,6 +59,20 @@ export function Make({ td, checks, onOpen, onExport }: MakeProps) {
           <p className="hint">What the checks say, what it costs, and the files a board house, a toolmaker or a 3D printer needs.</p>
         </div>
       </header>
+
+      <section className="make-hero" aria-label="Download everything">
+        <article className="card card-hero">
+          <h3>Everything <span className="ext">.zip</span></h3>
+          <p>The product report, pictures, CAD, Blender render, board and Gerber files, bill of materials and the design data, in one download.</p>
+          <button type="button" className="btn btn-primary" onClick={() => onExport('everything')} disabled={Boolean(working)}><Download size={15} />Download everything</button>
+        </article>
+        <article className="card card-hero">
+          <h3>Product report <span className="ext">.pdf</span></h3>
+          <p>Pictures, the system block diagram, power flow, control flow, assembly order, boards, housing fit and mould, bill of materials and checks.</p>
+          <button type="button" className="btn" onClick={() => onExport('report')} disabled={Boolean(working)}><Download size={15} />Download the report</button>
+        </article>
+        {working && <p className="hint" role="status">{working}…</p>}
+      </section>
 
       <dl className="facts facts-big">
         <div className={t.fail ? 'is-over' : ''}><dt>Checks passed</dt><dd className="num">{t.pass} of {t.scored}</dd></div>

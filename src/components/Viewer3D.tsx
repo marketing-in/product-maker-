@@ -41,7 +41,7 @@ function surface(part: Part): { metalness: number; roughness: number; clearcoat:
 }
 
 /** The printed face of a board: solder mask, pads, part outlines and reference designators. */
-function boardFace(b: BoardModel, side: 'top' | 'bottom'): THREE.Mesh | null {
+export function boardFace(b: BoardModel, side: 'top' | 'bottom'): THREE.Mesh | null {
   const pxPerMm = Math.max(6, Math.min(24, 2048 / Math.max(b.width, b.height)));
   const canvas = document.createElement('canvas');
   canvas.width = Math.round(b.width * pxPerMm);

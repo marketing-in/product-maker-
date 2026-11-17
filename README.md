@@ -117,6 +117,9 @@ A link such as `http://localhost:5173/#sample:board` opens the sample on a given
 
 ### Exports
 
+- **Everything (.zip)**, at the top of the Export menu and on the Make tab: the product report, pictures, both STEP models, the Blender scene, KiCad and Gerber files for every board, the bill of materials and the design data, in one compressed zip with a README.
+- **Product report (.pdf)**: a cover with a render and the key facts; the exploded view and what every part does; the system block diagram; the power flow from each source to every load, with volts, amps and watts; a control flow for each button; the assembly order; each circuit board with its copper and placement; the housing in 3D coloured by fit with how each part is moulded or cut; the bill of materials with a cost chart; and the checks, safety notes, open questions and how to confirm them. It is drawn in the browser from the design data (`src/lib/report.ts`, jsPDF), so it costs nothing and works on the Vercel site too.
+
 - **CAD model (.step)**, assembled or exploded. AP214, millimetres, one named and coloured solid per part. Opens in FreeCAD, Fusion, SolidWorks, Onshape and KiCad's 3D viewer. Cylinders are written as 32-sided prisms.
 - **Blender scene script (.py)**. In Blender, open the Scripting tab, open the file and press Run. It builds every part and wire and keyframes the explosion from frame 1 to frame 60. One Blender unit is one millimetre. Written for Blender 3.6 and newer, tested on 5.3.
 - **Gerber set (.zip)**, per board: outline, pads, mask, paste, silkscreen outlines, drill and placement files, RS-274X and Excellon in millimetres. The files are checked with [pcb-stackup](https://github.com/tracespace/tracespace), the renderer [Kitspace](https://github.com/kitspace) uses.

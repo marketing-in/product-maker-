@@ -43,6 +43,7 @@ The owner's reference for the experience is Flux (flux.ai): agent chat on the le
 | 20 | Add the Vercel settings so Claude works there | Done with the Vercel CLI (this Mac is logged in as `marketingkeyleer-sys`, project `product-maker-`, https://product-maker-pink.vercel.app). `APP_PASSWORD` was generated and set; the owner has the code. Never write it into the repo. |
 | 21 | Full UI test, fix what it finds; save every generation in the repo when pushing | `tests/ui-test.mjs` (`npm run test:ui`, free). `data/` is committed; `npm run push` (`scripts/push.sh`) scans and pushes it; Vercel bundles `data/generations` (`includeFiles` in `vercel.json`) and `server/store.mjs` reads it. |
 | 22 | Fit and mould should use 3D too | `FitMould.tsx`: 3D view coloured by fit status with a legend, Open the mould along each part's pull direction, click to select. |
+| 23 | One zip with every download; a full, visual PDF of the product with diagrams and flows | `src/lib/exportAll.ts` (compressed zip via `zipCompressed`), `src/lib/report.ts` (jsPDF, vector diagrams: block diagram, power flow as an indented tree, control flow, assembly flow, board with copper, cost chart), `src/lib/snapshot.ts` (off-screen 3D pictures). Export menu and Make tab. Check the PDF by rendering its pages (a small PDFKit Swift script works on this Mac). |
 
 ## Outside repos the owner named, and how each is used
 
