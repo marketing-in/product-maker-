@@ -1,17 +1,25 @@
 import { spawn } from 'node:child_process';
+import { existsSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 // Thin wrapper around the rea CLI (https://github.com/morluto/rea, npm
 // package "rea-agents"). rea analyses software artefacts: firmware images,
 // flash dumps, binaries, app bundles. Teardown Lab uses it for the firmware
 // stage, when the user uploads a file that came out of the product.
 //
-// rea is not bundled. Install it with `npm install --global rea-agents`, or
-// point REA_COMMAND at an existing launcher.
+// rea needs Node 24.22.1 or newer. `npm run setup:rea` installs rea and a Node it supports
+// inside tools/rea, and bin/rea runs it; no global install is needed. REA_COMMAND overrides
+// this with any other launcher, and a global `rea` on the PATH is the last resort.
 
 const MAX_OUTPUT = 4 * 1024 * 1024;
 const TIMEOUT_MS = 180_000;
 
-const command = () => process.env.REA_COMMAND || (process.platform === 'win32' ? 'rea.cmd' : 'rea');
+const LOCAL = join(dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'rea');
+const LOCAL_READY = join(dirname(fileURLToPath(import.meta.url)), '..', 'tools', 'rea', 'node_modules', 'rea-agents');
+const command = () => process.env.REA_COMMAND
+  || (process.platform !== 'win32' && existsSync(LOCAL_READY) ? LOCAL : null)
+  || (process.platform === 'win32' ? 'rea.cmd' : 'rea');
 
 function run(args, timeoutMs = TIMEOUT_MS) {
   return new Promise((resolve) => {

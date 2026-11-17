@@ -1,0 +1,9 @@
+{
+  "name": "teardown-lab-rea-runtime",
+  "private": true,
+  "description": "rea and a Node it supports, kept inside the project so nothing needs a global install. Set up with: npm run setup:rea",
+  "dependencies": {
+    "node": "24.22.3",
+    "rea-agents": "6.9.0"
+  }
+}

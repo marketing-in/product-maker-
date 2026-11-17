@@ -1,0 +1,11 @@
+#!/bin/sh
+# Runs rea with the Node kept in tools/rea (rea needs Node 24.22.1 or newer).
+# Set it up once with: npm run setup:rea
+HERE="$(cd "$(dirname "$0")/.." && pwd)"
+NODE="$HERE/tools/rea/node_modules/.bin/node"
+REA="$HERE/tools/rea/node_modules/rea-agents/scripts/rea.mjs"
+if [ ! -x "$NODE" ] || [ ! -f "$REA" ]; then
+  echo "rea is not set up in this project yet. Run: npm run setup:rea" >&2
+  exit 127
+fi
+exec "$NODE" "$REA" "$@"
