@@ -3,7 +3,16 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "functions": {
-    "api/index.mjs": { "maxDuration": 300, "memory": 1024 }
+    "api/index.mjs": {
+      "maxDuration": 300,
+      "memory": 1024,
+      "includeFiles": "data/generations/**"
+    }
   },
-  "rewrites": [{ "source": "/api/(.*)", "destination": "/api" }]
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "/api"
+    }
+  ]
 }

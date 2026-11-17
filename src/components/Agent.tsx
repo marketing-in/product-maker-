@@ -84,7 +84,9 @@ export default function Agent({ project, td, checks, busy, canAnalyse, onAnswer,
   const end = useRef<HTMLDivElement>(null);
   const phase = project?.phase;
   const turns = project?.turns.length ?? 0;
-  useEffect(() => { end.current?.scrollIntoView({ block: 'end' }); }, [phase, turns, td]);
+  // Scroll the chat box to its newest message. scrollIntoView would scroll the whole page on a
+  // narrow screen, where the chat sits below the model.
+  useEffect(() => { const box = end.current?.parentElement; if (box) box.scrollTop = box.scrollHeight; }, [phase, turns, td]);
 
   const t = tally(checks);
   const problems = checks.filter((c) => c.status === 'warn' || c.status === 'fail');

@@ -8,11 +8,15 @@ import { fileURLToPath } from 'node:url';
 //   data/generations/<kind>-<hash>.json   one file per API result, keyed by the exact request
 //   data/projects/<id>.json               a whole project: plan, answers, design, edits, chat
 //
-// The folder is in .gitignore. Delete a file to forget it.
+// The folder is committed with the code, so `git push` carries every generation with it.
+// Delete a file to forget it.
 
+const REPO_DATA = join(dirname(fileURLToPath(import.meta.url)), '..', 'data');
 // A hosted copy can only write to /tmp, which is emptied whenever the server restarts.
-const ROOT = process.env.VERCEL ? '/tmp/teardown-lab-data' : join(dirname(fileURLToPath(import.meta.url)), '..', 'data');
+// It still reads the generations that were pushed with the code, so they cost nothing there either.
+const ROOT = process.env.VERCEL ? '/tmp/teardown-lab-data' : REPO_DATA;
 const GEN = join(ROOT, 'generations');
+const SHIPPED = join(REPO_DATA, 'generations');
 const PROJECTS = join(ROOT, 'projects');
 const ID = /^[a-z0-9][a-z0-9-]{5,63}$/;
 
@@ -39,7 +43,7 @@ export function requestKey(kind, model, payload) {
 }
 
 export async function cacheGet(key) {
-  const hit = await readJson(join(GEN, `${key}.json`));
+  const hit = (await readJson(join(GEN, `${key}.json`))) ?? (GEN !== SHIPPED ? await readJson(join(SHIPPED, `${key}.json`)) : null);
   return hit?.result ?? null;
 }
 
@@ -53,11 +57,11 @@ export async function cachePut(key, { request, result, usage, model }) {
 }
 
 export async function cacheStats() {
-  try {
-    return (await readdir(GEN)).filter((f) => f.endsWith('.json')).length;
-  } catch {
-    return 0;
+  const names = new Set();
+  for (const dir of new Set([GEN, SHIPPED])) {
+    try { (await readdir(dir)).filter((f) => f.endsWith('.json')).forEach((f) => names.add(f)); } catch { /* folder not there yet */ }
   }
+  return names.size;
 }
 
 export const validId = (id) => typeof id === 'string' && ID.test(id);

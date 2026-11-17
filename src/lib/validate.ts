@@ -100,7 +100,7 @@ export function validate(td: Teardown): Check[] {
     // Past 200 °C the estimate says the power figures are wrong, not that the part glows.
     const absurd = hot.filter((h) => h.tempC > 200);
     list.push(absurd.length
-      ? { id: 'heat', title: 'Power figures', status: 'warn', detail: `The power going into ${names(absurd.map((h) => h.part))} does not match what comes out (it would mean ${Math.round(absurd[0].tempC)} °C). Check the currents on its connections in the power tree.`, tab: 'power' }
+      ? { id: 'heat', title: 'Power figures', status: 'warn', detail: `The power going into ${names(absurd.map((h) => h.part))} does not match what comes out, so its heat cannot be estimated. Check the voltages and currents on its connections in the power tree.`, tab: 'power' }
       : hot.length
       ? { id: 'heat', title: 'Temperature', status: 'warn', detail: `${names(hot.map((h) => h.part))} estimated at ${Math.round(hot[0].tempC)} °C, over the ${hot[0].limitC} °C limit. First-order estimate: confirm before acting.`, tab: 'sim' }
       : { id: 'heat', title: 'Temperature', status: 'pass', detail: `Hottest part ${sim.hottest ? `${sim.hottest.part.refDes ?? sim.hottest.part.name} at about ${Math.round(sim.hottest.tempC)} °C` : 'within limits'}.`, tab: 'sim' });

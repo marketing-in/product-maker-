@@ -3,6 +3,6 @@ dist
 .env
 *.log
 .DS_Store
-data
 .vercel
 .env*
+!.env.example

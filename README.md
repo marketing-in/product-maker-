@@ -36,11 +36,17 @@ The agent shows what it read. Then Claude works out what the board is from the d
 
 ### Nothing is generated twice
 
-Every result from Claude is written to `data/generations/` the moment it arrives, keyed by the exact request. Asking for the same thing again returns the stored result at no cost, and a result is kept even if the browser closed while waiting. Whole projects (plan, answers, design, your edits, the chat, an uploaded board) are saved to `data/projects/` and listed on the start page. The `data/` folder is git-ignored; delete a file to forget it.
+Every result from Claude is written to `data/generations/` the moment it arrives, keyed by the exact request. Asking for the same thing again returns the stored result at no cost, and a result is kept even if the browser closed while waiting. Whole projects (plan, answers, design, your edits, the chat, an uploaded board) are saved to `data/projects/` and listed on the start page. Opening a project does not re-save it; only a change does.
+
+The `data/` folder is committed with the code. `npm run push` checks it for anything that looks like a key, commits every new generation and project, and pushes. The Vercel site ships with `data/generations/` and reads it, so anything generated on your computer is free there too. Generations made on the Vercel site itself are not written back to the repository. Note that if the repository is public, the stored designs and prompts in `data/` are public too.
 
 `CLAUDE_EFFORT` in `.env` sets how hard the model thinks on a full design (`low`, `medium`, `high`; default `medium`). Higher is slower and costs more.
 
 The agent stays in the left panel. Ask for a change in words ("add a second battery"), or edit by hand in the Design tab. "Take apart a product I have" skips the questions and works from your photos and description instead.
+
+## Test it
+
+`npm run test:ui` drives the running app (`npm run dev`) in headless Chrome: the start page, the sample on every tab, the export menu and its downloads, the design editor, the simulator, every saved project on every tab, and laptop, tablet and phone widths. It checks for page errors, failed API calls, sideways scrolling, text spilling out of buttons, empty panels and pages that open scrolled away from the top, and saves a screenshot of each screen. It never calls Claude, so it costs nothing. It exits non-zero if anything fails.
 
 ## Run it
 
@@ -101,7 +107,7 @@ Restart Teardown Lab afterwards. Container formats rea reads natively (uImage, F
 | Simulator | Operate the product. Click a button on the 3D model or in the list: the press travels along the wiring, and the LEDs, speakers and motors that respond light up. Shows power drawn and a log of what happened. The simulator offers the functions the product has. A product with wheels and a motor can be driven: hold the on-screen arrows or use the arrow keys or W A S D, and it moves across a floor grid with its wheels turning, showing speed and distance. Fans and propellers spin while it is on. A product with a camera gets a camera view: a moving test pattern, or your own webcam if you allow it (the picture stays in the browser), with a button to take photos. If the product makes sound, you hear it: generated music for a speaker, white noise, rain or ocean for a sound machine, a beep for a buzzer, a hum for a motor, with a live level meter, a sound picker and a mute button. |
 | Architecture | A block diagram of each board: what feeds it, what it drives, every supply rail and bus, and a table of all interfaces. |
 | Bare board | The board on its own: outline, holes, footprints, pads and connections, top and bottom, flat or in 3D. A fabrication preview drawn from the generated Gerber files. |
-| Fit and mould | For each housing part: material, wall, tool direction, draft, ribs, shrink, mass, clamp force and cooling time. Then the gap from every part to the housing wall, and any parts that overlap. |
+| Fit and mould | A 3D view with every part coloured by fit (fits, tight, needs a cut-out, crosses the wall, overlaps) and an Open the mould button that slides each housing part along the direction its tool opens. Then, for each housing part: material, wall, tool direction, draft, ribs, shrink, mass, clamp force and cooling time. Then the gap from every part to the housing wall, and any parts that overlap. |
 | Parameters | Sliders for load, time at peak, supply voltage, ambient temperature and battery capacity. Shows input current, heat and a rough temperature per part, and battery runtime. |
 | Make | The checks the design passes and fails, cost by group, and every export in one place. |
 | Plan | The brainstorm result: requirements, blocks, risks. Shown when the project started from an idea. |

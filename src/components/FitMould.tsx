@@ -1,7 +1,27 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { fitReport, mouldNotes, type FitStatus } from '../lib/fit';
-import type { Teardown } from '../lib/types';
+import type { ConnectionKind, Part, Teardown, Vec3 } from '../lib/types';
+import Viewer3D from './Viewer3D';
+
+const NO_WIRES: Record<ConnectionKind, boolean> = { power: false, ground: false, signal: false, rf: false, mechanical: false };
+
+// Colours for the fit view. Each says one thing; the legend repeats it in words.
+const FIT_COLOR = {
+  inside: '#3f8f62',
+  tight: '#d9a400',
+  cutout: '#2f7de1',
+  wall: '#c4421c',
+  clash: '#9b4dca',
+} as const;
+const FIT_LABEL: Record<keyof typeof FIT_COLOR, string> = {
+  inside: 'Fits',
+  tight: 'Tight, under 0.5 mm',
+  cutout: 'Reaches the wall: needs a cut-out',
+  wall: 'Crosses the wall or sits outside',
+  clash: 'Overlaps another part',
+};
+const MEANT_TO_PASS = ['connector', 'display', 'electromech', 'sensor', 'antenna'];
 
 interface Props {
   td: Teardown;
@@ -21,6 +41,70 @@ const n1 = (v: number) => v.toFixed(1);
 export default function FitMould({ td, selectedId, onSelect }: Props) {
   const moulds = useMemo(() => mouldNotes(td), [td]);
   const fit = useMemo(() => fitReport(td), [td]);
+  const [byFit, setByFit] = useState(true);
+  const [xray, setXray] = useState(true);
+  const [open, setOpen] = useState(false);
+  const [amount, setAmount] = useState(0);
+  const amountRef = useRef(0);
+  amountRef.current = amount;
+
+  // The mould opens and closes smoothly.
+  useEffect(() => {
+    const from = amountRef.current;
+    const to = open ? 1 : 0;
+    if (from === to) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) { setAmount(to); return; }
+    const t0 = performance.now();
+    let raf = 0;
+    const step = (now: number) => {
+      const k = Math.min(1, (now - t0) / 900);
+      setAmount(from + (to - from) * (1 - Math.pow(1 - k, 3)));
+      if (k < 1) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [open]);
+
+  /** What each part's colour means in the fit view. */
+  const fitClass = useMemo(() => {
+    const m = new Map<string, keyof typeof FIT_COLOR>();
+    for (const r of fit.rows) {
+      m.set(r.part.id, r.status === 'inside' ? 'inside' : r.status === 'tight' ? 'tight'
+        : r.status === 'through-wall' && MEANT_TO_PASS.includes(r.part.category) ? 'cutout' : 'wall');
+    }
+    for (const c of fit.clashes) { m.set(c.a.id, 'clash'); m.set(c.b.id, 'clash'); }
+    return m;
+  }, [fit]);
+
+  // The model as the fit view draws it: parts in their fit colour, and each housing part
+  // pulled away from the centre along the direction its tool opens.
+  const view = useMemo<Teardown>(() => {
+    const housing = td.parts.filter((p) => p.category === 'enclosure');
+    const lo: Vec3 = [Infinity, Infinity, Infinity];
+    const hi: Vec3 = [-Infinity, -Infinity, -Infinity];
+    for (const h of housing) for (let i = 0; i < 3; i++) { lo[i] = Math.min(lo[i], h.position[i] - h.size[i] / 2); hi[i] = Math.max(hi[i], h.position[i] + h.size[i] / 2); }
+    const mid = lo.map((v, i) => (v + hi[i]) / 2);
+    const pull = new Map(moulds.map((m) => [m.part.id, m]));
+    const parts: Part[] = td.parts.map((p) => {
+      const explode: Vec3 = [0, 0, 0];
+      const m = pull.get(p.id);
+      if (m) {
+        const ai = ['x', 'y', 'z'].indexOf(m.pullAxis);
+        const off = p.position[ai] - mid[ai];
+        const sign = Math.abs(off) > 0.5 ? Math.sign(off) : m.pullSign === '-' ? -1 : 1;
+        explode[ai] = sign * Math.max(30, (hi[ai] - lo[ai]) * 0.7);
+      }
+      const cls = fitClass.get(p.id);
+      return {
+        ...p,
+        explode,
+        color: byFit && cls ? FIT_COLOR[cls] : p.color,
+        shapes: byFit && cls ? p.shapes?.map((s) => ({ ...s, color: undefined })) : p.shapes,
+      };
+    });
+    return { ...td, parts, connections: [] };
+  }, [td, moulds, fitClass, byFit]);
+  const used = [...new Set(fitClass.values())];
 
   if (!fit.hasHousing) {
     return (
@@ -46,6 +130,39 @@ export default function FitMould({ td, selectedId, onSelect }: Props) {
           </p>
         </div>
       </header>
+
+      <section className="fit-3d-wrap" aria-label="Fit in 3D">
+        <div className="fit-3d">
+          <Viewer3D
+            td={view}
+            explode={amount}
+            selectedId={selectedId}
+            onSelect={onSelect}
+            kinds={NO_WIRES}
+            showValues={false}
+            xray={xray}
+            resetSignal={0}
+          />
+        </div>
+        <div className="fit-3d-bar">
+          <button type="button" className="btn" aria-pressed={open} onClick={() => setOpen((v) => !v)}>
+            {open ? 'Close the mould' : 'Open the mould'}
+          </button>
+          <button type="button" className="chip" aria-pressed={byFit} onClick={() => setByFit((v) => !v)}>Colour by fit</button>
+          <button type="button" className="chip" aria-pressed={xray} onClick={() => setXray((v) => !v)}>See-through housing</button>
+          {byFit && (
+            <ul className="fit-legend">
+              {(Object.keys(FIT_COLOR) as (keyof typeof FIT_COLOR)[]).filter((k) => used.includes(k)).map((k) => (
+                <li key={k}><span className="swatch" style={{ background: FIT_COLOR[k] }} aria-hidden="true" />{FIT_LABEL[k]}</li>
+              ))}
+            </ul>
+          )}
+        </div>
+        <p className="hint">
+          “Open the mould” slides each housing part away along the direction its tool opens. Click a part to see its
+          details; the tables below follow.
+        </p>
+      </section>
 
       <dl className="facts">
         <div><dt>Housing envelope</dt><dd className="num">{fit.envelope.map(n1).join(' × ')} mm</dd></div>

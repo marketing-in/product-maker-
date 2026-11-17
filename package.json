@@ -9,7 +9,9 @@
     "build": "tsc --noEmit && vite build",
     "start": "node server/index.mjs",
     "typecheck": "tsc --noEmit",
-    "design:scan": "npx impeccable detect src"
+    "design:scan": "npx impeccable detect src",
+    "push": "sh scripts/push.sh",
+    "test:ui": "node tests/ui-test.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.8.0",

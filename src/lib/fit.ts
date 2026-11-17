@@ -72,14 +72,31 @@ export function mouldNotes(td: Teardown): MouldNote[] {
     const sideAction = /side.?action|slide|lifter/i.test(text);
 
     const notes: string[] = [];
-    if (wall < 1) notes.push(`Wall of ${wall} mm is thin for a part this size. Expect short shots unless the flow length is under ${Math.round(wall * 150)} mm.`);
-    if (wall > 4) notes.push(`Wall of ${wall} mm is thick. Core it out to about 2.5 mm to avoid sink marks and long cooling.`);
-    if (depth / wall > 30) notes.push(`Deep draw (${Math.round(depth / wall)} × wall). Add ribs or raise the draft so the part releases without scuffing.`);
-    if (sideAction) notes.push('The process note mentions a side action. Any port or button opening in a side wall needs a slide or a shut-off.');
     const nearby = screws.filter((s) => instances(s).some((c) => {
       const b = boxOf(p.position, p.size);
       return c.every((v, i) => v >= b.min[i] - 2 && v <= b.max[i] + 2);
     }));
+    if (!moulded) {
+      // Cut or formed from sheet: draft, ribs, sink marks and shrink do not apply.
+      const metal = /steel|alumin|metal|brass|copper|stamp|bent|formed|press/i.test(text);
+      const sheet = /mdf|plywood|wood|timber|board|acrylic|cnc|rout|laser|sawn|cut|sheet/i.test(text);
+      if (metal) notes.push(`Formed sheet, ${wall} mm: keep each inside bend radius at least ${wall} mm and holes at least ${(wall * 2).toFixed(1)} mm from a bend.`);
+      else if (sheet) notes.push(`Cut from flat ${wall} mm sheet, so draft, ribs and shrink do not apply. Joints and fixings set the strength.`);
+      for (const s of nearby) {
+        const d = Math.min(...s.size);
+        notes.push(`${s.qty} × ${s.name}: pilot hole about ${(d * 0.75).toFixed(1)} mm, at least ${(d * 2.5).toFixed(1)} mm from any edge.`);
+      }
+      if (!notes.length) notes.push('Not a moulded part. No problems found at this level of detail.');
+      return {
+        part: p, moulded, resin: 'Not a moulded resin', wall, pullAxis, pullSign: '+' as const, depth, draftDeg: 0, draftTaperMm: 0,
+        volumeCm3, massG: 0, shrinkPct: 0, cavityMm: p.size, projectedCm2, clampTonnes: 0, coolingS: 0, ribMm: [0, 0] as [number, number],
+        sideAction: false, notes,
+      };
+    }
+    if (wall < 1) notes.push(`Wall of ${wall} mm is thin for a part this size. Expect short shots unless the flow length is under ${Math.round(wall * 150)} mm.`);
+    if (wall > 4) notes.push(`Wall of ${wall} mm is thick. Core it out to about 2.5 mm to avoid sink marks and long cooling.`);
+    if (depth / wall > 30) notes.push(`Deep draw (${Math.round(depth / wall)} × wall). Add ribs or raise the draft so the part releases without scuffing.`);
+    if (sideAction) notes.push('The process note mentions a side action. Any port or button opening in a side wall needs a slide or a shut-off.');
     for (const s of nearby) {
       const d = Math.min(...s.size);
       notes.push(`${s.qty} × ${s.name}: screw boss about ${(d * 2).toFixed(1)} mm outside diameter, ${(d * 0.8).toFixed(1)} mm pilot hole, with ${(wall * 0.6).toFixed(1)} mm ribs to the wall.`);

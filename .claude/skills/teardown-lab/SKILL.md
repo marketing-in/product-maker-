@@ -40,6 +40,9 @@ The owner's reference for the experience is Flux (flux.ai): agent chat on the le
 | 17 | In the simulator, make the product do what it is: if it moves, make it movable; if it is a camera, make the camera work | `src/lib/abilities.ts` detects drive (wheels + motor), spinners (fans, propellers) and cameras. `Simulator.tsx`: Drive panel (D-pad, arrow keys, W A S D), drive loop, `CameraView` (test pattern or the user's webcam, local only). `Viewer3D` takes a `motion` ref: moves the product over a floor grid and turns wheels. Add new functions the same way: detect in `abilities.ts`, panel in `Simulator.tsx`. |
 | 18 | The board must show its copper lines | `src/lib/route.ts`: a grid autorouter (two layers, 45 degree steps, vias, power first). Traces are drawn in the Bare board layout, on the 3D board face, and written to the Gerber and KiCad exports. Always say it is an autorouted first pass, not the original routing and not rule-checked. |
 | 19 | Push to git; make the Vercel deployment work | Remote `origin` is `github.com/marketing-in/product-maker-` (linked to a Lovable project). `vercel.json` + `api/index.mjs` run the Express app as a Vercel function. Hosted rules in `server/index.mjs`: paid endpoints need `APP_PASSWORD` and refuse when it is unset; `/api/projects` is off and `src/lib/api.ts` keeps projects in the browser. |
+| 20 | Add the Vercel settings so Claude works there | Done with the Vercel CLI (this Mac is logged in as `marketingkeyleer-sys`, project `product-maker-`, https://product-maker-pink.vercel.app). `APP_PASSWORD` was generated and set; the owner has the code. Never write it into the repo. |
+| 21 | Full UI test, fix what it finds; save every generation in the repo when pushing | `tests/ui-test.mjs` (`npm run test:ui`, free). `data/` is committed; `npm run push` (`scripts/push.sh`) scans and pushes it; Vercel bundles `data/generations` (`includeFiles` in `vercel.json`) and `server/store.mjs` reads it. |
+| 22 | Fit and mould should use 3D too | `FitMould.tsx`: 3D view coloured by fit status with a legend, Open the mould along each part's pull direction, click to select. |
 
 ## Outside repos the owner named, and how each is used
 
@@ -79,6 +82,9 @@ The owner's reference for the experience is Flux (flux.ai): agent chat on the le
 
 - Swarm builds are faster but dearer: about 4.5 min and $2.50 against 7.5 min and $1.85 for one pass, on the robot. Do not re-run one to test the page: replay a stored build by stubbing `fetch('/api/build')` with events rebuilt from `data/generations/swarm-*.json`.
 - A battery in its holder is not a clash. An estimate above 200 °C means the power figures do not add up, and is reported that way.
+
+- Run `npm run test:ui` after any change to the interface. It found: the chat scrolling the whole page on narrow screens, long answer buttons overflowing, plastic-moulding advice on wood and sheet parts, and opening a project re-saving it. Keep a check for each.
+- Opening a saved project must never write it. Only a real change saves.
 
 ## How to verify changes
 

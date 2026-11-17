@@ -438,10 +438,17 @@ export default function App() {
   }, [live, liveZones, zoneStates]);
 
   // Save the project a moment after anything changes: plan, answers, design, edits, chat.
-  // Photos are left out to keep the file small.
+  // Photos are left out to keep the file small. Opening a project is not a change: what was
+  // last loaded or saved is remembered, and the same content is never written again.
+  const lastSaved = useRef('');
+  const contentKey = (p: Project, t: Teardown | null, o: Teardown | null) =>
+    JSON.stringify([p.id, p.prompt, p.brief, p.answers, p.turns, p.board?.name ?? null, t, o]);
   useEffect(() => {
     if (!project || (!project.brief && !project.board && !td) || project.phase === 'briefing' || project.phase === 'designing') return;
+    const key = contentKey(project, td, original);
+    if (key === lastSaved.current) return;
     const t = window.setTimeout(() => {
+      lastSaved.current = key;
       apiFetch(`/api/projects/${project.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -464,7 +471,9 @@ export default function App() {
       if (!res.ok) throw new Error();
       const doc = await res.json() as { project: Project | null; teardown: Teardown | null; original: Teardown | null };
       const next = doc.teardown;
-      setProject(doc.project ? { ...doc.project, id, images: [], phase: next ? 'ready' : 'plan', error: '', fromStore: true } : null);
+      const loaded = doc.project ? { ...doc.project, id, images: [], phase: next ? 'ready' as const : 'plan' as const, error: '', fromStore: true } : null;
+      if (loaded) lastSaved.current = contentKey(loaded, next, doc.original ?? next);
+      setProject(loaded);
       setTd(next);
       setOriginal(doc.original ?? next);
       setHistory([]);
@@ -649,7 +658,7 @@ export default function App() {
                 <ul>
                   {saved.map((p) => (
                     <li key={p.id}>
-                      <button type="button" className="saved-open" onClick={() => void openSaved(p.id)}>
+                      <button type="button" className="saved-open" data-id={p.id} onClick={() => void openSaved(p.id)}>
                         <strong>{p.title}</strong>
                         <span className="hint">
                           {p.stage === 'design' ? `Design, ${p.parts} parts` : 'Plan only'} · {new Date(p.updatedAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
