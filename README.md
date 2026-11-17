@@ -44,6 +44,10 @@ The `data/` folder is committed with the code. `npm run push` checks it for anyt
 
 The agent stays in the left panel. Ask for a change in words ("add a second battery"), or edit by hand in the Design tab. "Take apart a product I have" skips the questions and works from your photos and description instead.
 
+## Overview PDF
+
+`docs/teardown-lab-overview.pdf` explains the application in twelve illustrated pages: the journey, the team of agents, the views, the design editor and simulator, the board pipeline, housing and firmware, the downloads, the system architecture, the cost model, and how it is tested. Rebuild it with `npm run docs:overview` while `npm run dev` is running: it takes fresh screenshots from the sample and the saved robot (no Claude calls) and prints `docs/overview/overview.html` with headless Chrome.
+
 ## Test it
 
 `npm run test:ui` drives the running app (`npm run dev`) in headless Chrome: the start page, the sample on every tab, the export menu and its downloads, the design editor, the simulator, every saved project on every tab, and laptop, tablet and phone widths. It checks for page errors, failed API calls, sideways scrolling, text spilling out of buttons, empty panels and pages that open scrolled away from the top, and saves a screenshot of each screen. It never calls Claude, so it costs nothing. It exits non-zero if anything fails.
@@ -89,10 +93,10 @@ What is different when hosted:
 ### Firmware stage (optional)
 
 ```bash
-npm install --global rea-agents
+npm run setup:rea
 ```
 
-Restart Teardown Lab afterwards. Container formats rea reads natively (uImage, FIT, ESP flash images and more) need nothing else. Region scans of raw firmware need Binwalk on Linux: set `REA_BINWALK_COMMAND` in `.env`.
+This installs rea and a Node it supports (rea needs Node 24.22.1 or newer) into `tools/rea`, inside the project. `bin/rea` runs it, the app finds it there, and `.mcp.json` uses it for Claude Code's rea tools, so there is no global install and no administrator password. (`npm install --global rea-agents` fails with `EACCES` when Node lives in `/usr/local`, and rea refuses older Node versions.) To use another rea, set `REA_COMMAND` in `.env`. Restart Teardown Lab afterwards. Container formats rea reads natively (uImage, FIT, ESP flash images and more) need nothing else. Region scans of raw firmware need Binwalk on Linux: set `REA_BINWALK_COMMAND` in `.env`.
 
 ## What you get
 
@@ -101,7 +105,7 @@ Restart Teardown Lab afterwards. Container formats rea reads natively (uImage, F
 | Exploded view | Every part as a 3D solid on a dark studio stage, with realistic materials, soft shadows and eased edges. Boards show their pads and reference labels. Buttons jump to top, front, side and 3D views. Drag the Explode slider or press play. Wires are coloured by kind (power, ground, signal, RF) and animated in the direction of flow. Power paths are labelled with volts, amps and watts. Click a part for its details. |
 | Power tree | Power from the input down to each load, with what each part receives, passes on and uses. |
 | Bill of materials | Reference, package or material, candidate part numbers, quantity, rough unit cost, and the basis for each line. |
-| Firmware | rea's report on an uploaded firmware or flash image, with Claude's reading of it. |
+| Firmware | **Write the firmware**: Claude Opus 5.5 writes a complete PlatformIO project for the design's controller, with a pin map that matches the board, code for every control and output, safe start-up and shut-down, and build and bench-test steps (about $0.29 for the robot, stored and reused). Then rea's report on an uploaded firmware or flash image, with Claude's reading of it. |
 
 | Design | Redesign the product. Drag a part in 3D or type its position and size. Resize the whole housing, change a wall, centre a part, move a board with everything mounted on it. The fit check updates live, with undo and reset. Every other view and export follows the edit. |
 | Simulator | Operate the product. Click a button on the 3D model or in the list: the press travels along the wiring, and the LEDs, speakers and motors that respond light up. Shows power drawn and a log of what happened. The simulator offers the functions the product has. A product with wheels and a motor can be driven: hold the on-screen arrows or use the arrow keys or W A S D, and it moves across a floor grid with its wheels turning, showing speed and distance. Fans and propellers spin while it is on. A product with a camera gets a camera view: a moving test pattern, or your own webcam if you allow it (the picture stays in the browser), with a button to take photos. If the product makes sound, you hear it: generated music for a speaker, white noise, rain or ocean for a sound machine, a beep for a buzzer, a hum for a motor, with a live level meter, a sound picker and a mute button. |

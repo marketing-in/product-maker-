@@ -6,3 +6,8 @@ dist
 .vercel
 .env*
 !.env.example
+tools/rea/node_modules
+
+# Downloads the overview capture uses for its report pictures
+docs/overview/shots/*.pdf
+docs/overview/shots/*.zip

@@ -1,0 +1,597 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Teardown Lab: how it works</title>
+<style>
+@font-face { font-family: Plex; font-weight: 400; src: url(../../node_modules/@fontsource/ibm-plex-sans/files/ibm-plex-sans-latin-400-normal.woff2); }
+@font-face { font-family: Plex; font-weight: 500; src: url(../../node_modules/@fontsource/ibm-plex-sans/files/ibm-plex-sans-latin-500-normal.woff2); }
+@font-face { font-family: Plex; font-weight: 600; src: url(../../node_modules/@fontsource/ibm-plex-sans/files/ibm-plex-sans-latin-600-normal.woff2); }
+@font-face { font-family: Plex; font-weight: 700; src: url(../../node_modules/@fontsource/ibm-plex-sans/files/ibm-plex-sans-latin-700-normal.woff2); }
+@font-face { font-family: PlexMono; font-weight: 400; src: url(../../node_modules/@fontsource/ibm-plex-mono/files/ibm-plex-mono-latin-400-normal.woff2); }
+@font-face { font-family: PlexMono; font-weight: 500; src: url(../../node_modules/@fontsource/ibm-plex-mono/files/ibm-plex-mono-latin-500-normal.woff2); }
+
+/* Tokens from DESIGN.md: paper, ink, one amber for emphasis, one colour per connection kind. */
+:root {
+  --paper: #f5f3ee; --panel: #fcfbf8; --stage: #171a1f; --sunk: #ecebe6;
+  --ink: #22262c; --ink-2: #4f545b; --ink-3: #6b7077; --rule: #dedbd3; --rule-2: #c6c2b8;
+  --amber: #f0a400; --amber-soft: #fbf0d4; --amber-ink: #6e4b00;
+  --power: #c4421c; --ground: #3a3f45; --signal: #2a5fb0; --rf: #12827a;
+  --ok: #2f7a54; --ok-soft: #e2f1e8;
+  --sans: Plex, system-ui, sans-serif; --mono: PlexMono, ui-monospace, monospace;
+}
+@page { size: 297mm 210mm; margin: 0; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+body { font-family: var(--sans); color: var(--ink); background: var(--paper); font-size: 10.5pt; line-height: 1.45; }
+.page { width: 297mm; height: 210mm; padding: 15mm 17mm 13mm; position: relative; overflow: hidden; break-after: page; background: var(--paper); display: flex; flex-direction: column; gap: 6mm; }
+.page:last-child { break-after: auto; }
+.kicker { font-size: 8pt; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); }
+h1 { font-size: 34pt; line-height: 1.02; font-weight: 600; letter-spacing: -0.025em; }
+h2 { font-size: 20pt; line-height: 1.1; font-weight: 600; letter-spacing: -0.015em; }
+h3 { font-size: 11pt; font-weight: 600; }
+p.lede { font-size: 12pt; color: var(--ink-2); max-width: 62ch; }
+p { color: var(--ink-2); }
+.num, code { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.foot { position: absolute; left: 17mm; right: 17mm; bottom: 7mm; display: flex; justify-content: space-between; font-size: 7.5pt; color: var(--ink-3); }
+.head { display: flex; flex-direction: column; gap: 2mm; }
+.row { display: flex; gap: 7mm; min-height: 0; }
+.grow { flex: 1; min-width: 0; }
+.shot { border-radius: 2.5mm; overflow: hidden; border: 0.3mm solid var(--rule-2); background: var(--stage); }
+.shot img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top left; }
+.cap { font-size: 8pt; color: var(--ink-3); margin-top: 1.5mm; }
+.card { background: var(--panel); border: 0.3mm solid var(--rule-2); border-radius: 2mm; padding: 4mm 4.5mm; display: flex; flex-direction: column; gap: 1.5mm; }
+.card p { font-size: 9.5pt; }
+.pill { display: inline-block; font-size: 7.5pt; font-weight: 600; padding: 0.4mm 2.2mm; border-radius: 99mm; background: var(--sunk); color: var(--ink-2); }
+.pill.amber { background: var(--amber-soft); color: var(--amber-ink); }
+.pill.ok { background: var(--ok-soft); color: var(--ok); }
+ul.plain { list-style: none; display: grid; gap: 1.6mm; }
+ul.plain li { padding-left: 4mm; position: relative; font-size: 9.5pt; color: var(--ink-2); }
+ul.plain li::before { content: ''; position: absolute; left: 0; top: 2.2mm; width: 1.6mm; height: 0.35mm; background: var(--ink-3); }
+.facts { display: flex; gap: 9mm; }
+.facts div { display: flex; flex-direction: column; }
+.facts dt { font-size: 7.5pt; color: var(--ink-3); }
+.facts dd { font-size: 15pt; font-weight: 600; font-family: var(--mono); }
+table { border-collapse: collapse; width: 100%; font-size: 9pt; }
+th { text-align: left; font-weight: 600; font-size: 7.5pt; color: var(--ink-3); border-bottom: 0.4mm solid var(--ink-3); padding: 1.2mm 2mm; }
+td { padding: 1.6mm 2mm; border-bottom: 0.25mm solid var(--rule); color: var(--ink-2); vertical-align: top; }
+td.r, th.r { text-align: right; }
+td b { color: var(--ink); font-weight: 600; }
+svg text { font-family: var(--sans); }
+svg .mono { font-family: var(--mono); }
+.tree { font-family: var(--mono); font-size: 8.6pt; line-height: 1.55; color: var(--ink); background: var(--panel); border: 0.3mm solid var(--rule-2); border-radius: 2mm; padding: 4mm 5mm; white-space: pre; }
+.tree i { font-style: normal; color: var(--ink-3); }
+</style>
+</head>
+<body>
+
+<!-- 1 cover -->
+<section class="page" style="padding:0; gap:0; flex-direction:row;">
+  <div style="width:112mm; padding:18mm 12mm 14mm 17mm; display:flex; flex-direction:column; gap:7mm;">
+    <div class="kicker">Overview · how the application works</div>
+    <h1>Teardown Lab</h1>
+    <p class="lede" style="font-size:13pt;">Say what you want to build, show a product you have, or upload a circuit board. An agent takes it from idea to the files to make it.</p>
+    <div style="display:grid; gap:3mm; margin-top:2mm;">
+      <div class="card"><h3>Design something new</h3><p>One sentence becomes a plan, a 3D design with a board and housing, firmware and a parts list.</p></div>
+      <div class="card"><h3>Take apart a product you have</h3><p>Photos or a description become a part-by-part teardown with the wiring and the power on every path.</p></div>
+      <div class="card"><h3>Make a housing for your board</h3><p>A Gerber set or a KiCad file becomes a moulded enclosure designed round the board.</p></div>
+    </div>
+    <div style="margin-top:auto; font-size:8pt; color:var(--ink-3);">Built on Claude, three.js, KiCad and Kitspace formats, rea and Blender.<br>November 2026</div>
+  </div>
+  <div style="flex:1; background:var(--stage); position:relative;">
+    <img src="shots/camera-exploded.png" style="position:absolute; inset:0; width:100%; height:100%; object-fit:cover; object-position:50% 50%;">
+    <div style="position:absolute; left:8mm; bottom:8mm; color:#e9e6dc; font-size:8.5pt; background:rgba(23,26,31,0.75); padding:2mm 3mm; border-radius:1.5mm;">An AI sports-tracking camera and its remote, taken apart from photos and pulled apart in the 3D view.</div>
+  </div>
+</section>
+
+<!-- 2 the journey -->
+<section class="page">
+  <div class="head">
+    <div class="kicker">The journey</div>
+    <h2>Three stages, from a sentence to the files</h2>
+    <p class="lede">The agent leads, and asks only what changes the design. Every stage leaves something you can check, change or download.</p>
+  </div>
+  <svg viewBox="0 0 1000 300" width="100%" style="height:94mm;">
+    <defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#6b7077"/></marker></defs>
+    <!-- input -->
+    <rect x="0" y="105" width="140" height="90" rx="10" fill="#fbf0d4" stroke="#f0a400" stroke-width="1.5"/>
+    <text x="70" y="140" text-anchor="middle" font-size="15" font-weight="600" fill="#22262c">Your idea</text>
+    <text x="70" y="162" text-anchor="middle" font-size="12" fill="#4f545b">a sentence,</text>
+    <text x="70" y="178" text-anchor="middle" font-size="12" fill="#4f545b">photos, or a board</text>
+    <line x1="142" y1="150" x2="178" y2="150" stroke="#6b7077" stroke-width="2" marker-end="url(#arr)"/>
+    <!-- stages -->
+    <g>
+      <rect x="182" y="20" width="240" height="260" rx="12" fill="#fcfbf8" stroke="#c6c2b8" stroke-width="1.5"/>
+      <circle cx="210" cy="50" r="15" fill="#22262c"/><text x="210" y="55" text-anchor="middle" font-size="14" font-weight="700" fill="#fff">1</text>
+      <text x="234" y="56" font-size="19" font-weight="600" fill="#22262c">Brainstorm</text>
+      <text x="202" y="92" font-size="12.5" fill="#4f545b">Says back what it understood</text>
+      <text x="202" y="114" font-size="12.5" fill="#4f545b">Asks 3 to 5 questions,</text>
+      <text x="202" y="131" font-size="12.5" fill="#4f545b">each with a ready answer</text>
+      <text x="202" y="153" font-size="12.5" fill="#4f545b">Writes the plan: requirements,</text>
+      <text x="202" y="170" font-size="12.5" fill="#4f545b">blocks with real parts, risks,</text>
+      <text x="202" y="187" font-size="12.5" fill="#4f545b">a cost range</text>
+      <rect x="202" y="222" width="200" height="38" rx="6" fill="#ecebe6"/>
+      <text x="302" y="246" text-anchor="middle" font-size="12.5" class="mono" fill="#22262c">≈ 16 s · ≈ $0.09</text>
+    </g>
+    <line x1="424" y1="150" x2="460" y2="150" stroke="#6b7077" stroke-width="2" marker-end="url(#arr)"/>
+    <g>
+      <rect x="464" y="20" width="250" height="260" rx="12" fill="#fcfbf8" stroke="#c6c2b8" stroke-width="1.5"/>
+      <circle cx="492" cy="50" r="15" fill="#22262c"/><text x="492" y="55" text-anchor="middle" font-size="14" font-weight="700" fill="#fff">2</text>
+      <text x="516" y="56" font-size="19" font-weight="600" fill="#22262c">Design</text>
+      <text x="484" y="92" font-size="12.5" fill="#4f545b">A team of agents builds the</text>
+      <text x="484" y="109" font-size="12.5" fill="#4f545b">housing, boards, parts, wiring</text>
+      <text x="484" y="126" font-size="12.5" fill="#4f545b">and controls, in parallel</text>
+      <text x="484" y="148" font-size="12.5" fill="#4f545b">You watch it appear in 3D</text>
+      <text x="484" y="170" font-size="12.5" fill="#4f545b">Checks run: electrical, fit,</text>
+      <text x="484" y="187" font-size="12.5" fill="#4f545b">clashes, heat, battery, board</text>
+      <rect x="484" y="222" width="210" height="38" rx="6" fill="#ecebe6"/>
+      <text x="589" y="246" text-anchor="middle" font-size="12.5" class="mono" fill="#22262c">≈ 4.5 min · ≈ $2.50</text>
+    </g>
+    <line x1="716" y1="150" x2="752" y2="150" stroke="#6b7077" stroke-width="2" marker-end="url(#arr)"/>
+    <g>
+      <rect x="756" y="20" width="244" height="260" rx="12" fill="#fcfbf8" stroke="#c6c2b8" stroke-width="1.5"/>
+      <circle cx="784" cy="50" r="15" fill="#22262c"/><text x="784" y="55" text-anchor="middle" font-size="14" font-weight="700" fill="#fff">3</text>
+      <text x="808" y="56" font-size="19" font-weight="600" fill="#22262c">Make</text>
+      <text x="776" y="92" font-size="12.5" fill="#4f545b">Firmware for the controller</text>
+      <text x="776" y="114" font-size="12.5" fill="#4f545b">Product report (PDF)</text>
+      <text x="776" y="136" font-size="12.5" fill="#4f545b">KiCad, Gerber, STEP, Blender,</text>
+      <text x="776" y="153" font-size="12.5" fill="#4f545b">bill of materials</text>
+      <text x="776" y="175" font-size="12.5" fill="#4f545b">All in one zip</text>
+      <rect x="776" y="222" width="204" height="38" rx="6" fill="#ecebe6"/>
+      <text x="878" y="246" text-anchor="middle" font-size="11.5" class="mono" fill="#22262c">files $0 · firmware ≈ $0.29</text>
+    </g>
+  </svg>
+  <div class="row" style="flex:1;">
+    <div class="grow"><div class="shot" style="height:44mm;"><img src="shots/start-intake.png" style="object-fit:cover; object-position:50% 0;"></div><div class="cap">Start: describe it or add photos of the product you have.</div></div>
+    <div class="grow"><div class="shot" style="height:44mm;"><img src="shots/camera-exploded-values.png" style="object-position:50% 50%;"></div><div class="cap">Design: every part placed, wired and checked.</div></div>
+    <div class="grow"><div class="shot" style="height:44mm;"><img src="shots/camera-make.png" style="object-position:50% 0;"></div><div class="cap">Make: cost by group, checks and every download.</div></div>
+  </div>
+  <div class="foot"><span>Teardown Lab · overview</span><span>2</span></div>
+</section>
+
+<!-- 3 the swarm -->
+<section class="page">
+  <div class="head">
+    <div class="kicker">Design stage</div>
+    <h2>A team of agents builds it, and you watch</h2>
+  </div>
+  <div class="row" style="flex:1;">
+    <svg viewBox="0 0 520 430" style="width:128mm; flex:none;">
+      <defs><marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#6b7077"/></marker></defs>
+      <rect x="160" y="0" width="200" height="62" rx="10" fill="#22262c"/>
+      <text x="260" y="27" text-anchor="middle" font-size="15" font-weight="600" fill="#fff">Architect</text>
+      <text x="260" y="47" text-anchor="middle" font-size="11.5" fill="#d6d3cb">splits the work four ways</text>
+      <g stroke="#6b7077" stroke-width="1.6" fill="none">
+        <path d="M200 62 C200 95, 60 95, 60 120" marker-end="url(#a2)"/>
+        <path d="M240 62 C240 95, 195 95, 195 120" marker-end="url(#a2)"/>
+        <path d="M280 62 C280 95, 325 95, 325 120" marker-end="url(#a2)"/>
+        <path d="M320 62 C320 95, 460 95, 460 120" marker-end="url(#a2)"/>
+      </g>
+      <g font-size="12">
+        <rect x="0" y="122" width="120" height="74" rx="9" fill="#fcfbf8" stroke="#7c5cff" stroke-width="2"/>
+        <text x="60" y="150" text-anchor="middle" font-weight="600" fill="#22262c">Housing</text><text x="60" y="168" text-anchor="middle" fill="#4f545b">shells and fixings</text><text x="60" y="186" text-anchor="middle" class="mono" font-size="10.5" fill="#6b7077">agent 1</text>
+        <rect x="135" y="122" width="120" height="74" rx="9" fill="#fcfbf8" stroke="#0f9d8a" stroke-width="2"/>
+        <text x="195" y="150" text-anchor="middle" font-weight="600" fill="#22262c">Mechanics</text><text x="195" y="168" text-anchor="middle" fill="#4f545b">motors, mounts</text><text x="195" y="186" text-anchor="middle" class="mono" font-size="10.5" fill="#6b7077">agent 2</text>
+        <rect x="265" y="122" width="120" height="74" rx="9" fill="#fcfbf8" stroke="#e0457b" stroke-width="2"/>
+        <text x="325" y="150" text-anchor="middle" font-weight="600" fill="#22262c">Power</text><text x="325" y="168" text-anchor="middle" fill="#4f545b">battery, charging</text><text x="325" y="186" text-anchor="middle" class="mono" font-size="10.5" fill="#6b7077">agent 3</text>
+        <rect x="400" y="122" width="120" height="74" rx="9" fill="#fcfbf8" stroke="#2f7de1" stroke-width="2"/>
+        <text x="460" y="150" text-anchor="middle" font-weight="600" fill="#22262c">Electronics</text><text x="460" y="168" text-anchor="middle" fill="#4f545b">boards, sensors</text><text x="460" y="186" text-anchor="middle" class="mono" font-size="10.5" fill="#6b7077">agent 4</text>
+      </g>
+      <g stroke="#6b7077" stroke-width="1.6" fill="none">
+        <path d="M60 196 C60 250, 220 245, 230 268" marker-end="url(#a2)"/>
+        <path d="M195 196 L250 266" marker-end="url(#a2)"/>
+        <path d="M325 196 L270 266" marker-end="url(#a2)"/>
+        <path d="M460 196 C460 250, 300 245, 290 268" marker-end="url(#a2)"/>
+      </g>
+      <rect x="160" y="270" width="200" height="62" rx="10" fill="#22262c"/>
+      <text x="260" y="297" text-anchor="middle" font-size="15" font-weight="600" fill="#fff">Integrator</text>
+      <text x="260" y="317" text-anchor="middle" font-size="11.5" fill="#d6d3cb">wires the pieces, writes controls</text>
+      <line x1="260" y1="334" x2="260" y2="362" stroke="#6b7077" stroke-width="1.6" marker-end="url(#a2)"/>
+      <rect x="120" y="366" width="280" height="56" rx="10" fill="#fbf0d4" stroke="#f0a400" stroke-width="1.5"/>
+      <text x="260" y="390" text-anchor="middle" font-size="14" font-weight="600" fill="#22262c">One design, checked and stored</text>
+      <text x="260" y="409" text-anchor="middle" font-size="11.5" fill="#6e4b00">parts · wiring · controls</text>
+    </svg>
+    <div class="grow" style="display:flex; flex-direction:column; gap:4mm;">
+      <div class="shot" style="height:76mm; background:#101317;"><svg viewBox="0 0 560 290" width="100%" height="100%" preserveAspectRatio="xMidYMid meet">
+  <g fill="none" stroke-width="1.5">
+    <!-- finished pieces -->
+    <path d="M150 120 L330 90 L430 130 L250 165 Z" fill="#3a3f46" stroke="#5b6168"/>
+    <path d="M150 120 L250 165 L250 245 L150 200 Z" fill="#2b2f35" stroke="#5b6168"/>
+    <path d="M250 165 L430 130 L430 210 L250 245 Z" fill="#33383e" stroke="#5b6168"/>
+    <path d="M215 150 L330 132 L370 148 L255 167 Z" fill="#1f7a46" stroke="#2fa866"/>
+    <circle cx="300" cy="150" r="9" fill="#1b1d20" stroke="#6b7077"/>
+    <!-- pieces still being built -->
+    <path d="M300 40 L400 25 L450 45 L350 62 Z" stroke="#c6c2b8" stroke-dasharray="5 4" fill="rgba(198,194,184,0.06)"/>
+    <path d="M60 150 L110 142 L110 200 L60 208 Z" stroke="#c6c2b8" stroke-dasharray="5 4" fill="rgba(198,194,184,0.06)"/>
+    <path d="M455 170 L505 160 L505 215 L455 225 Z" stroke="#c6c2b8" stroke-dasharray="5 4" fill="rgba(198,194,184,0.06)"/>
+  </g>
+  <g transform="translate(170,104)"><path d="M0,0 L0,17 L4.5,13 L8,21 L11,19.5 L7.5,12 L13,12 Z" fill="#7c5cff" stroke="#fff" stroke-width="1"/><rect x="12" y="18" width="66" height="18" rx="9" fill="#7c5cff"/><text x="45" y="31" text-anchor="middle" font-size="11" font-weight="600" fill="#fff">Housing</text></g>
+  <g transform="translate(410,40)"><path d="M0,0 L0,17 L4.5,13 L8,21 L11,19.5 L7.5,12 L13,12 Z" fill="#0f9d8a" stroke="#fff" stroke-width="1"/><rect x="12" y="18" width="81" height="18" rx="9" fill="#0f9d8a"/><text x="52" y="31" text-anchor="middle" font-size="11" font-weight="600" fill="#fff">Mechanics</text></g>
+  <g transform="translate(470,182)"><path d="M0,0 L0,17 L4.5,13 L8,21 L11,19.5 L7.5,12 L13,12 Z" fill="#e0457b" stroke="#fff" stroke-width="1"/><rect x="12" y="18" width="52" height="18" rx="9" fill="#e0457b"/><text x="38" y="31" text-anchor="middle" font-size="11" font-weight="600" fill="#fff">Power</text></g>
+  <g transform="translate(300,136)"><path d="M0,0 L0,17 L4.5,13 L8,21 L11,19.5 L7.5,12 L13,12 Z" fill="#2f7de1" stroke="#fff" stroke-width="1"/><rect x="12" y="18" width="95" height="18" rx="9" fill="#2f7de1"/><text x="60" y="31" text-anchor="middle" font-size="11" font-weight="600" fill="#fff">Electronics</text></g>
+  <text x="16" y="276" font-size="11" fill="#8a8f96">Illustration of the live build view</text>
+</svg></div>
+      <div class="cap" style="margin-top:-2mm;">Each agent has a named cursor over the piece it is building. Grey boxes are pieces not done yet; real parts pop in as each agent finishes. The build streams to the browser, and a reload rejoins it.</div>
+      <table>
+        <tr><th>Measured on one test design</th><th class="r">Team of agents</th><th class="r">One agent</th></tr>
+        <tr><td>Time</td><td class="r num"><b>≈ 4.5 min</b></td><td class="r num">≈ 7.5 min</td></tr>
+        <tr><td>Parts designed</td><td class="r num"><b>55</b></td><td class="r num">41</td></tr>
+        <tr><td>Cost</td><td class="r num">≈ $2.47</td><td class="r num"><b>≈ $1.84</b></td></tr>
+      </table>
+    </div>
+  </div>
+  <div class="foot"><span>Teardown Lab · overview</span><span>3</span></div>
+</section>
+
+<!-- 4 the views -->
+<section class="page">
+  <div class="head">
+    <div class="kicker">The workspace</div>
+    <h2>One model, thirteen ways to look at it</h2>
+    <p class="lede">Everything is drawn from the same design, so a part selected in one view is selected in all of them, and an edit shows up everywhere.</p>
+  </div>
+  <svg viewBox="0 0 1000 205" width="100%" style="height:50mm;">
+    <g font-size="12.5">
+      <rect x="400" y="70" width="200" height="64" rx="12" fill="#22262c"/>
+      <text x="500" y="99" text-anchor="middle" font-size="15" font-weight="600" fill="#fff">The design</text>
+      <text x="500" y="119" text-anchor="middle" font-size="11.5" fill="#d6d3cb">parts · wiring · controls</text>
+      <g stroke="#c6c2b8" stroke-width="1.5"><line x1="400" y1="92" x2="250" y2="45"/><line x1="400" y1="112" x2="250" y2="160"/><line x1="600" y1="92" x2="750" y2="45"/><line x1="600" y1="112" x2="750" y2="160"/></g>
+      <rect x="20" y="8" width="230" height="74" rx="9" fill="#fcfbf8" stroke="#c6c2b8"/>
+      <text x="36" y="32" font-weight="600" fill="#22262c">Understand it</text>
+      <text x="36" y="52" fill="#4f545b">Exploded view · Architecture</text><text x="36" y="70" fill="#4f545b">Power tree · Parameters</text>
+      <rect x="20" y="124" width="230" height="74" rx="9" fill="#fcfbf8" stroke="#c6c2b8"/>
+      <text x="36" y="148" font-weight="600" fill="#22262c">Change it</text>
+      <text x="36" y="168" fill="#4f545b">Design editor · ask the agent</text><text x="36" y="186" fill="#4f545b">undo · reset</text>
+      <rect x="750" y="8" width="230" height="74" rx="9" fill="#fcfbf8" stroke="#c6c2b8"/>
+      <text x="766" y="32" font-weight="600" fill="#22262c">Operate it</text>
+      <text x="766" y="52" fill="#4f545b">Simulator: buttons, drive,</text><text x="766" y="70" fill="#4f545b">camera, sound</text>
+      <rect x="750" y="124" width="230" height="74" rx="9" fill="#fcfbf8" stroke="#c6c2b8"/>
+      <text x="766" y="148" font-weight="600" fill="#22262c">Build it</text>
+      <text x="766" y="168" fill="#4f545b">Bare board · Fit and mould</text><text x="766" y="186" fill="#4f545b">Firmware · BOM · Make</text>
+    </g>
+  </svg>
+  <div class="row" style="flex:1;">
+    <div class="grow"><div class="shot" style="height:56mm;"><img src="shots/camera-exploded-values.png" style="object-position:50% 50%;"></div><div class="cap">Exploded view: real materials, printed boards, wires coloured by kind with volts, amps and watts.</div></div>
+    <div class="grow"><div class="shot" style="height:56mm;"><img src="shots/camera-architecture.png" style="object-position:30% 20%;"></div><div class="cap">Architecture: each board with its blocks, every supply rail and bus.</div></div>
+    <div class="grow"><div class="shot" style="height:56mm;"><img src="shots/camera-power.png" style="object-fit:contain; background:#f5f3ee;"></div><div class="cap">Power tree: from the input to every load.</div></div>
+  </div>
+  <div class="foot"><span>Teardown Lab · overview</span><span>4</span></div>
+</section>
+
+<!-- 5 change and operate -->
+<section class="page">
+  <div class="head">
+    <div class="kicker">Change it, then operate it</div>
+    <h2>Move parts by hand, then press the product’s buttons</h2>
+  </div>
+  <div class="row" style="flex:1;">
+    <div class="grow" style="display:flex; flex-direction:column; gap:3mm;">
+      <div class="shot" style="height:70mm;"><img src="shots/camera-design.png" style="object-position:30% 45%;"></div>
+      <h3>Design editor</h3>
+      <ul class="plain">
+        <li>Drag a part in 3D or type its position and size; a board moves with everything on it.</li>
+        <li>Resize the housing and change its wall; the fit check updates as you go.</li>
+        <li>Undo and reset; every view and export follows the change.</li>
+      </ul>
+    </div>
+    <div class="grow" style="display:flex; flex-direction:column; gap:3mm;">
+      <div class="shot" style="height:70mm;"><img src="shots/camera-simulator.png" style="object-position:60% 15%;"></div>
+      <h3>Simulator</h3>
+      <svg viewBox="0 0 520 70" width="100%" style="height:15mm;">
+        <defs><marker id="a3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#6b7077"/></marker></defs>
+        <g font-size="12">
+          <rect x="0" y="12" width="110" height="44" rx="7" fill="#fbf0d4" stroke="#f0a400"/><text x="55" y="39" text-anchor="middle" font-weight="600" fill="#22262c">Press Power</text>
+          <line x1="112" y1="34" x2="140" y2="34" stroke="#6b7077" stroke-width="1.5" marker-end="url(#a3)"/>
+          <rect x="144" y="12" width="110" height="44" rx="7" fill="#fcfbf8" stroke="#c6c2b8"/><text x="199" y="39" text-anchor="middle" fill="#22262c">Wiring carries it</text>
+          <line x1="256" y1="34" x2="284" y2="34" stroke="#6b7077" stroke-width="1.5" marker-end="url(#a3)"/>
+          <rect x="288" y="12" width="110" height="44" rx="7" fill="#fcfbf8" stroke="#c6c2b8"/><text x="343" y="39" text-anchor="middle" fill="#22262c">Controller</text>
+          <line x1="400" y1="34" x2="428" y2="34" stroke="#6b7077" stroke-width="1.5" marker-end="url(#a3)"/>
+          <rect x="432" y="12" width="88" height="44" rx="7" fill="#e2f1e8" stroke="#7ab896"/><text x="476" y="39" text-anchor="middle" font-weight="600" fill="#22262c">Outputs</text>
+        </g>
+      </svg>
+      <ul class="plain">
+        <li>Wheeled products drive across a floor with the arrow keys; fans spin; a camera shows a live picture.</li>
+        <li>Speakers and sound machines play: music, white noise, rain, ocean, with a level meter.</li>
+      </ul>
+    </div>
+  </div>
+  <div class="foot"><span>Teardown Lab · overview</span><span>5</span></div>
+</section>
+
+<!-- 6 boards -->
+<section class="page">
+  <div class="head">
+    <div class="kicker">Circuit boards</div>
+    <h2>Every board, routed, in KiCad and Gerber, and back again</h2>
+  </div>
+  <svg viewBox="0 0 1000 175" width="100%" style="height:44mm;">
+    <defs><marker id="a4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#6b7077"/></marker></defs>
+    <g font-size="12.5">
+      <text x="0" y="16" font-size="11" font-weight="600" fill="#6b7077" letter-spacing="1">OUT: FROM A DESIGN</text>
+      <rect x="0" y="28" width="150" height="50" rx="8" fill="#22262c"/><text x="75" y="58" text-anchor="middle" fill="#fff" font-weight="600">The design</text>
+      <line x1="152" y1="53" x2="180" y2="53" stroke="#6b7077" stroke-width="1.5" marker-end="url(#a4)"/>
+      <rect x="184" y="28" width="170" height="50" rx="8" fill="#fcfbf8" stroke="#c6c2b8"/><text x="269" y="50" text-anchor="middle" fill="#22262c" font-weight="600">Bare board</text><text x="269" y="67" text-anchor="middle" font-size="11" fill="#4f545b">outline, footprints, pads, nets</text>
+      <line x1="356" y1="53" x2="384" y2="53" stroke="#6b7077" stroke-width="1.5" marker-end="url(#a4)"/>
+      <rect x="388" y="28" width="170" height="50" rx="8" fill="#fcfbf8" stroke="#c6c2b8"/><text x="473" y="50" text-anchor="middle" fill="#22262c" font-weight="600">Autorouter</text><text x="473" y="67" text-anchor="middle" font-size="11" fill="#4f545b">2 layers, vias, power first</text>
+      <line x1="560" y1="53" x2="588" y2="53" stroke="#6b7077" stroke-width="1.5" marker-end="url(#a4)"/>
+      <rect x="592" y="28" width="408" height="50" rx="8" fill="#e2f1e8" stroke="#7ab896"/><text x="796" y="50" text-anchor="middle" fill="#22262c" font-weight="600">KiCad board · Gerber and drill · Kitspace parts list</text><text x="796" y="67" text-anchor="middle" font-size="11" fill="#2f7a54">checked with pcb-stackup, the renderer Kitspace uses</text>
+      <text x="0" y="112" font-size="11" font-weight="600" fill="#6b7077" letter-spacing="1">IN: FROM YOUR BOARD</text>
+      <rect x="0" y="124" width="150" height="50" rx="8" fill="#fbf0d4" stroke="#f0a400"/><text x="75" y="146" text-anchor="middle" fill="#22262c" font-weight="600">Gerber or KiCad</text><text x="75" y="163" text-anchor="middle" font-size="11" fill="#6e4b00">files or a .zip</text>
+      <line x1="152" y1="149" x2="180" y2="149" stroke="#6b7077" stroke-width="1.5" marker-end="url(#a4)"/>
+      <rect x="184" y="124" width="170" height="50" rx="8" fill="#fcfbf8" stroke="#c6c2b8"/><text x="269" y="146" text-anchor="middle" fill="#22262c" font-weight="600">Read and measure</text><text x="269" y="163" text-anchor="middle" font-size="11" fill="#4f545b">outline, parts, holes</text>
+      <line x1="356" y1="149" x2="384" y2="149" stroke="#6b7077" stroke-width="1.5" marker-end="url(#a4)"/>
+      <rect x="388" y="124" width="170" height="50" rx="8" fill="#fcfbf8" stroke="#c6c2b8"/><text x="473" y="146" text-anchor="middle" fill="#22262c" font-weight="600">Claude</text><text x="473" y="163" text-anchor="middle" font-size="11" fill="#4f545b">works out what it is</text>
+      <line x1="560" y1="149" x2="588" y2="149" stroke="#6b7077" stroke-width="1.5" marker-end="url(#a4)"/>
+      <rect x="592" y="124" width="408" height="50" rx="8" fill="#e2f1e8" stroke="#7ab896"/><text x="796" y="146" text-anchor="middle" fill="#22262c" font-weight="600">A two-piece housing designed round the board</text><text x="796" y="163" text-anchor="middle" font-size="11" fill="#2f7a54">clearance, screw bosses, a cut-out for every connector</text>
+    </g>
+  </svg>
+  <div class="row" style="flex:1;">
+    <div class="grow"><div class="shot" style="height:66mm;"><img src="shots/camera-board-layout.png" style="object-fit:contain; background:#f5f3ee;"></div><div class="cap">Bare board layout: pads, autorouted copper and every part with its reference.</div></div>
+    <div class="grow"><div class="shot" style="height:66mm;"><img src="shots/camera-board-3d.png" style="object-position:50% 50%;"></div><div class="cap">The same board in 3D, with the copper printed under the solder mask.</div></div>
+  </div>
+  <div class="foot"><span>Teardown Lab · overview</span><span>6</span></div>
+</section>
+
+<!-- 7 housing and firmware -->
+<section class="page">
+  <div class="head">
+    <div class="kicker">Housing and firmware</div>
+    <h2>Does it fit, how is it moulded, and what runs on it</h2>
+  </div>
+  <div class="row" style="flex:1;">
+    <div class="grow" style="display:flex; flex-direction:column; gap:3mm;">
+      <div class="shot" style="height:76mm;"><img src="shots/camera-fit.png" style="object-fit:contain; object-position:50% 0; background:#f5f3ee;"></div>
+      <h3>Fit and mould</h3>
+      <ul class="plain">
+        <li>Parts coloured by fit: fits, tight, needs a cut-out, crosses the wall, overlaps.</li>
+        <li>Open the mould slides each housing part along the direction its tool opens.</li>
+        <li>Per part: material, wall, draft, ribs, shrink, mass, clamp force, cooling time; sheet and wood parts get sheet advice.</li>
+      </ul>
+    </div>
+    <div class="grow" style="display:flex; flex-direction:column; gap:3mm;">
+      <div class="shot" style="height:76mm;"><img src="shots/camera-firmware-code.png" style="object-position:0 0;"></div>
+      <h3>Firmware</h3>
+      <svg viewBox="0 0 520 64" width="100%" style="height:14mm;">
+        <defs><marker id="a5" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#6b7077"/></marker></defs>
+        <g font-size="12">
+          <rect x="0" y="10" width="140" height="44" rx="7" fill="#fcfbf8" stroke="#c6c2b8"/><text x="70" y="30" text-anchor="middle" font-weight="600" fill="#22262c">Parts, wiring,</text><text x="70" y="46" text-anchor="middle" font-weight="600" fill="#22262c">controls</text>
+          <line x1="142" y1="32" x2="172" y2="32" stroke="#6b7077" stroke-width="1.5" marker-end="url(#a5)"/>
+          <rect x="176" y="10" width="140" height="44" rx="7" fill="#22262c"/><text x="246" y="30" text-anchor="middle" fill="#fff" font-weight="600">Claude Opus 5.5</text><text x="246" y="46" text-anchor="middle" font-size="11" fill="#d6d3cb">≈ 2 min · ≈ $0.29</text>
+          <line x1="318" y1="32" x2="348" y2="32" stroke="#6b7077" stroke-width="1.5" marker-end="url(#a5)"/>
+          <rect x="352" y="10" width="168" height="44" rx="7" fill="#e2f1e8" stroke="#7ab896"/><text x="436" y="30" text-anchor="middle" font-weight="600" fill="#22262c">PlatformIO project</text><text x="436" y="46" text-anchor="middle" font-size="11" fill="#2f7a54">pin map · code · tests</text>
+        </g>
+      </svg>
+      <ul class="plain">
+        <li>Written for the controller actually in the design, with a pin map that matches the board.</li>
+        <li>Upload existing firmware and rea inspects it on your computer.</li>
+      </ul>
+    </div>
+  </div>
+  <div class="foot"><span>Teardown Lab · overview</span><span>7</span></div>
+</section>
+
+<!-- 8 outputs -->
+<section class="page">
+  <div class="head">
+    <div class="kicker">What you take away</div>
+    <h2>One download with everything, and a report anyone can read</h2>
+  </div>
+  <div class="row" style="flex:1;">
+    <div style="width:104mm; flex:none; display:flex; flex-direction:column; gap:3mm;">
+<div class="tree">camera-everything.zip
+├─ camera-report.pdf     <i>the product report</i>
+├─ images/               <i>assembled, exploded</i>
+├─ cad/                  <i>STEP, assembled + exploded</i>
+├─ render/               <i>Blender scene script</i>
+├─ firmware/             <i>PlatformIO project</i>
+│  ├─ platformio.ini
+│  ├─ include/pins.h, protocol.h
+│  └─ src/main.cpp       <i>the remote</i>
+├─ pcb/                  <i>each of the 4 boards</i>
+│  ├─ board.kicad_pcb
+│  └─ gerbers/           <i>copper, mask, drill…</i>
+├─ bom/                  <i>bill of materials</i>
+├─ data/                 <i>the whole design</i>
+└─ README.txt</div>
+      <p style="font-size:9pt;">Made in the browser from the design in a few seconds: no tokens. The camera’s zip is 0.9 MB with 73 files.</p>
+    </div>
+    <div class="grow" style="display:flex; flex-direction:column; gap:3mm;">
+      <div class="row" style="gap:4mm;">
+        <div class="grow"><div class="shot" style="height:88mm; background:#fff;"><img src="shots/camera-report-cover.png" style="object-fit:contain; object-position:top;"></div></div>
+        <div class="grow"><div class="shot" style="height:88mm; background:#fff;"><img src="shots/camera-report-power.png" style="object-fit:contain; object-position:top;"></div></div>
+        <div class="grow"><div class="shot" style="height:88mm; background:#fff;"><img src="shots/camera-report-board.png" style="object-fit:contain; object-position:top;"></div></div>
+      </div>
+      <div class="cap">The product report: cover with a render and key facts, the power flow from source to every load, and each board with its copper. It also has the block diagram, control flow, assembly order, housing fit, firmware, bill of materials and checks.</div>
+    </div>
+  </div>
+  <div class="foot"><span>Teardown Lab · overview</span><span>8</span></div>
+</section>
+
+<!-- 9 architecture -->
+<section class="page">
+  <div class="head">
+    <div class="kicker">How it is built</div>
+    <h2>System architecture</h2>
+  </div>
+  <svg viewBox="0 0 1000 420" width="100%" style="height:118mm;">
+    <defs><marker id="a6" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#6b7077"/></marker></defs>
+    <g font-size="12.5">
+      <!-- browser -->
+      <rect x="0" y="0" width="330" height="420" rx="14" fill="#fcfbf8" stroke="#c6c2b8" stroke-width="1.5"/>
+      <text x="20" y="32" font-size="15" font-weight="600" fill="#22262c">Browser</text>
+      <text x="20" y="52" font-size="11.5" fill="#6b7077">React · three.js · jsPDF</text>
+      <g>
+        <rect x="20" y="70" width="290" height="48" rx="8" fill="#ecebe6"/><text x="34" y="99" fill="#22262c">Agent chat and the stage bar</text>
+        <rect x="20" y="126" width="290" height="48" rx="8" fill="#ecebe6"/><text x="34" y="155" fill="#22262c">3D views, design editor, simulator</text>
+        <rect x="20" y="182" width="290" height="48" rx="8" fill="#ecebe6"/><text x="34" y="211" fill="#22262c">Checks, fit, mould, parameters</text>
+        <rect x="20" y="238" width="290" height="48" rx="8" fill="#ecebe6"/><text x="34" y="267" fill="#22262c">Board model and autorouter</text>
+        <rect x="20" y="294" width="290" height="48" rx="8" fill="#ecebe6"/><text x="34" y="323" fill="#22262c">Exports: report, zip, KiCad, STEP…</text>
+        <text x="20" y="378" font-size="11.5" fill="#4f545b">Everything after the design is computed here,</text>
+        <text x="20" y="396" font-size="11.5" fill="#4f545b">so it is instant and costs nothing.</text>
+      </g>
+      <!-- arrows -->
+      <line x1="334" y1="150" x2="402" y2="150" stroke="#6b7077" stroke-width="1.6" marker-start="url(#a6)" marker-end="url(#a6)"/>
+      <text x="368" y="138" text-anchor="middle" font-size="11" fill="#6b7077">/api</text>
+      <!-- server -->
+      <rect x="406" y="0" width="300" height="420" rx="14" fill="#fcfbf8" stroke="#c6c2b8" stroke-width="1.5"/>
+      <text x="426" y="32" font-size="15" font-weight="600" fill="#22262c">Server</text>
+      <text x="426" y="52" font-size="11.5" fill="#6b7077">Node · Express · on your computer or Vercel</text>
+      <rect x="426" y="70" width="260" height="40" rx="8" fill="#ecebe6"/><text x="440" y="95" fill="#22262c"><tspan class="mono" font-size="11.5">/brief</tspan>  questions and plan</text>
+      <rect x="426" y="116" width="260" height="40" rx="8" fill="#ecebe6"/><text x="440" y="141" fill="#22262c"><tspan class="mono" font-size="11.5">/build</tspan>  team of agents, streamed</text>
+      <rect x="426" y="162" width="260" height="40" rx="8" fill="#ecebe6"/><text x="440" y="187" fill="#22262c"><tspan class="mono" font-size="11.5">/analyze</tspan>  teardown or housing</text>
+      <rect x="426" y="208" width="260" height="40" rx="8" fill="#ecebe6"/><text x="440" y="233" fill="#22262c"><tspan class="mono" font-size="11.5">/firmware-gen</tspan>  firmware</text>
+      <rect x="426" y="254" width="260" height="40" rx="8" fill="#ecebe6"/><text x="440" y="279" fill="#22262c"><tspan class="mono" font-size="11.5">/board-import</tspan>  Gerber, KiCad</text>
+      <rect x="426" y="300" width="260" height="40" rx="8" fill="#fbf0d4" stroke="#f0a400"/><text x="440" y="325" fill="#22262c">Access code on a public copy</text>
+      <rect x="426" y="350" width="260" height="52" rx="8" fill="#22262c"/><text x="440" y="372" fill="#fff" font-weight="600">Store</text><text x="440" y="391" font-size="11" fill="#d6d3cb">every result kept, never paid twice</text>
+      <!-- right -->
+      <line x1="710" y1="120" x2="776" y2="80" stroke="#6b7077" stroke-width="1.6" marker-end="url(#a6)"/>
+      <line x1="710" y1="250" x2="776" y2="250" stroke="#6b7077" stroke-width="1.6" marker-end="url(#a6)"/>
+      <line x1="710" y1="376" x2="776" y2="376" stroke="#6b7077" stroke-width="1.6" marker-end="url(#a6)"/>
+      <rect x="780" y="20" width="220" height="130" rx="12" fill="#22262c"/>
+      <text x="798" y="50" font-size="15" font-weight="600" fill="#fff">Claude API</text>
+      <text x="798" y="76" font-size="11.5" fill="#d6d3cb">Fable 5.2: plans and designs</text>
+      <text x="798" y="96" font-size="11.5" fill="#d6d3cb">Opus 5.5: firmware</text>
+      <text x="798" y="122" font-size="11.5" fill="#d6d3cb">answers come back as data</text>
+      <text x="798" y="138" font-size="11.5" fill="#d6d3cb">and are checked</text>
+      <rect x="780" y="200" width="220" height="100" rx="12" fill="#fcfbf8" stroke="#c6c2b8"/>
+      <text x="798" y="228" font-size="15" font-weight="600" fill="#22262c">rea</text>
+      <text x="798" y="252" font-size="11.5" fill="#4f545b">firmware and binary analysis,</text>
+      <text x="798" y="270" font-size="11.5" fill="#4f545b">runs on your computer</text>
+      <rect x="780" y="340" width="220" height="80" rx="12" fill="#fcfbf8" stroke="#c6c2b8"/>
+      <text x="798" y="368" font-size="15" font-weight="600" fill="#22262c">data/ in git</text>
+      <text x="798" y="390" font-size="11.5" fill="#4f545b">generations and projects,</text>
+      <text x="798" y="406" font-size="11.5" fill="#4f545b">pushed with the code</text>
+    </g>
+  </svg>
+  <div class="foot"><span>Teardown Lab · overview</span><span>9</span></div>
+</section>
+
+<!-- 10 never pay twice -->
+<section class="page">
+  <div class="head">
+    <div class="kicker">Cost</div>
+    <h2>Nothing is generated twice</h2>
+    <p class="lede">Every answer from Claude is written to disk the moment it arrives, keyed by the exact request. The same request again is answered from storage, in milliseconds, for nothing.</p>
+  </div>
+  <div class="row" style="flex:1;">
+    <svg viewBox="0 0 470 330" style="width:116mm; flex:none;">
+      <defs><marker id="a7" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#6b7077"/></marker></defs>
+      <g font-size="12.5">
+        <rect x="150" y="0" width="170" height="46" rx="8" fill="#fbf0d4" stroke="#f0a400"/><text x="235" y="28" text-anchor="middle" font-weight="600" fill="#22262c">A request</text>
+        <line x1="235" y1="48" x2="235" y2="78" stroke="#6b7077" stroke-width="1.5" marker-end="url(#a7)"/>
+        <path d="M235 82 L335 126 L235 170 L135 126 Z" fill="#fcfbf8" stroke="#c6c2b8" stroke-width="1.5"/>
+        <text x="235" y="122" text-anchor="middle" font-weight="600" fill="#22262c">Stored</text><text x="235" y="140" text-anchor="middle" font-weight="600" fill="#22262c">already?</text>
+        <line x1="135" y1="126" x2="70" y2="126" stroke="#6b7077" stroke-width="1.5"/><line x1="70" y1="126" x2="70" y2="226" stroke="#6b7077" stroke-width="1.5" marker-end="url(#a7)"/>
+        <text x="100" y="118" text-anchor="middle" font-size="11.5" fill="#2f7a54" font-weight="600">yes</text>
+        <rect x="0" y="230" width="140" height="62" rx="8" fill="#e2f1e8" stroke="#7ab896"/><text x="70" y="256" text-anchor="middle" font-weight="600" fill="#22262c">Answer from</text><text x="70" y="274" text-anchor="middle" font-weight="600" fill="#22262c">storage · $0</text>
+        <line x1="335" y1="126" x2="400" y2="126" stroke="#6b7077" stroke-width="1.5"/><line x1="400" y1="126" x2="400" y2="152" stroke="#6b7077" stroke-width="1.5" marker-end="url(#a7)"/>
+        <text x="368" y="118" text-anchor="middle" font-size="11.5" fill="#c4421c" font-weight="600">no</text>
+        <rect x="330" y="156" width="140" height="46" rx="8" fill="#22262c"/><text x="400" y="184" text-anchor="middle" font-weight="600" fill="#fff">Ask Claude</text>
+        <line x1="400" y1="204" x2="400" y2="226" stroke="#6b7077" stroke-width="1.5" marker-end="url(#a7)"/>
+        <rect x="330" y="230" width="140" height="62" rx="8" fill="#fcfbf8" stroke="#c6c2b8"/><text x="400" y="256" text-anchor="middle" font-weight="600" fill="#22262c">Store it first,</text><text x="400" y="274" text-anchor="middle" font-weight="600" fill="#22262c">then answer</text>
+        <text x="235" y="318" text-anchor="middle" font-size="11" fill="#6b7077">Kept even if the browser closed while it was working.</text>
+      </g>
+    </svg>
+    <div class="grow" style="display:flex; flex-direction:column; gap:4mm;">
+      <table>
+        <tr><th>Step</th><th>Model</th><th class="r">Time</th><th class="r">Cost, first time</th><th class="r">Again</th></tr>
+        <tr><td><b>Plan</b> (questions and blocks)</td><td>Fable 5.2</td><td class="r num">≈ 16 s</td><td class="r num">≈ $0.09</td><td class="r num">$0</td></tr>
+        <tr><td><b>Design</b>, team of agents</td><td>Fable 5.2</td><td class="r num">≈ 4.5 min</td><td class="r num">≈ $2.47</td><td class="r num">$0</td></tr>
+        <tr><td><b>Design</b>, one agent</td><td>Fable 5.2</td><td class="r num">3.5–7.5 min</td><td class="r num">$0.88–1.84</td><td class="r num">$0</td></tr>
+        <tr><td><b>Firmware</b></td><td>Opus 5.5</td><td class="r num">≈ 2 min</td><td class="r num">≈ $0.29</td><td class="r num">$0</td></tr>
+        <tr><td><b>Report, zip, board files, checks</b></td><td>none</td><td class="r num">2–6 s</td><td class="r num">$0</td><td class="r num">$0</td></tr>
+      </table>
+      <div class="card">
+        <h3>Shared with the code</h3>
+        <p><code>npm run push</code> checks the stored data for anything that looks like a key, commits every new generation and project, and pushes. The hosted site ships with them, so a design made on your computer is free there too.</p>
+      </div>
+      <p style="font-size:8.5pt; color:var(--ink-3);">Costs measured on this project in November 2026. Firmware with Opus 5.5 cost $0.29 against $0.73 with Fable 5.2 for the same test design.</p>
+    </div>
+  </div>
+  <div class="foot"><span>Teardown Lab · overview</span><span>10</span></div>
+</section>
+
+<!-- 11 honesty and quality -->
+<section class="page">
+  <div class="head">
+    <div class="kicker">Trust</div>
+    <h2>Honest about what it knows, tested on every screen</h2>
+  </div>
+  <div class="row" style="flex:1;">
+    <div class="grow" style="display:flex; flex-direction:column; gap:4mm;">
+      <div class="card">
+        <h3>Every part says how sure it is</h3>
+        <svg viewBox="0 0 420 34" width="100%" style="height:9mm;">
+          <g font-size="13"><circle cx="12" cy="17" r="8" fill="#22262c"/><text x="28" y="22" fill="#22262c">Observed</text>
+          <circle cx="132" cy="17" r="8" fill="none" stroke="#22262c" stroke-width="2"/><path d="M132 9 A8 8 0 0 0 132 25 Z" fill="#22262c"/><text x="148" y="22" fill="#22262c">Inferred</text>
+          <circle cx="248" cy="17" r="8" fill="none" stroke="#22262c" stroke-width="2"/><text x="264" y="22" fill="#22262c">Assumed</text></g>
+        </svg>
+        <p>With the evidence behind it and the open question to close. Estimates are never shown as measurements.</p>
+      </div>
+      <div class="card">
+        <h3>Checks after every change</h3>
+        <p>Electrical rules, connections, fit in the housing, clashes, temperature, battery, board layout and controls, each with a link to where to look.</p>
+      </div>
+      <div class="card">
+        <h3>Limits it states plainly</h3>
+        <ul class="plain">
+          <li>Sizes, part numbers and values are estimates until measured.</li>
+          <li>Board copper is an autorouted first pass; review it in KiCad.</li>
+          <li>Firmware is written from the design and not compiled here.</li>
+        </ul>
+      </div>
+    </div>
+    <div class="grow" style="display:flex; flex-direction:column; gap:4mm;">
+      <dl class="facts">
+        <div><dt>UI checks per run</dt><dd>600+</dd></div>
+        <div><dt>Screens covered</dt><dd>13 tabs</dd></div>
+        <div><dt>Claude calls</dt><dd>0</dd></div>
+      </dl>
+      <p><code>npm run test:ui</code> drives the real app in a headless browser: the sample and every saved project on every tab, the editor, the simulator, every download, and laptop, tablet and phone widths. It fails on page errors, failed API calls, sideways scrolling, text spilling out of buttons, unreadable code and pages that open in the wrong place.</p>
+      <div class="card">
+        <h3>Found and fixed by it</h3>
+        <ul class="plain">
+          <li>Phones opened scrolled to the bottom of the page.</li>
+          <li>Wood and metal parts got plastic-moulding advice.</li>
+          <li>Opening a saved project re-saved it.</li>
+          <li>Firmware code was unreadable on its dark background.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <div class="foot"><span>Teardown Lab · overview</span><span>11</span></div>
+</section>
+
+<!-- 12 getting started -->
+<section class="page">
+  <div class="head">
+    <div class="kicker">Getting started</div>
+    <h2>Run it on your computer, or online</h2>
+  </div>
+  <div class="row" style="flex:1;">
+    <div class="grow" style="display:flex; flex-direction:column; gap:4mm;">
+      <div class="card">
+        <h3>On your computer</h3>
+<pre style="font-family:var(--mono); font-size:9pt; color:var(--ink); line-height:1.7;">npm install
+cp .env.example .env     <span style="color:var(--ink-3)"># add ANTHROPIC_API_KEY</span>
+npm run dev              <span style="color:var(--ink-3)"># http://localhost:5173</span>
+npm run setup:rea        <span style="color:var(--ink-3)"># optional: firmware inspection</span>
+npm run test:ui          <span style="color:var(--ink-3)"># full interface test</span>
+npm run push             <span style="color:var(--ink-3)"># save generations and push</span></pre>
+        <p>Without a key the built-in sample still works on every screen.</p>
+      </div>
+      <div class="card">
+        <h3>Online with Vercel</h3>
+        <p>The same repository deploys as is. Set <code>ANTHROPIC_API_KEY</code> and <code>APP_PASSWORD</code> (and <code>ANTHROPIC_WORKSPACE_ID</code> for a user-scoped key). Without an access code the agent stays off, so a public address cannot spend your credit. Projects are kept in each visitor’s browser.</p>
+      </div>
+    </div>
+    <div class="grow" style="display:flex; flex-direction:column; gap:3mm;">
+      <div class="shot" style="height:98mm;"><img src="shots/start.png"></div>
+      <div class="cap">The start page: three ways in, examples, and your saved projects.</div>
+    </div>
+  </div>
+  <div class="foot"><span>Teardown Lab · overview</span><span>12</span></div>
+</section>
+
+</body>
+</html>

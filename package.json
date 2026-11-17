@@ -11,7 +11,9 @@
     "typecheck": "tsc --noEmit",
     "design:scan": "npx impeccable detect src",
     "push": "sh scripts/push.sh",
-    "test:ui": "node tests/ui-test.mjs"
+    "test:ui": "node tests/ui-test.mjs",
+    "setup:rea": "npm install --prefix tools/rea --no-audit --no-fund",
+    "docs:overview": "node docs/overview/capture.mjs && node docs/overview/build.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.8.0",
