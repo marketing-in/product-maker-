@@ -25,6 +25,16 @@ const ok = (cond, what) => { checks++; if (!cond) failures.push(what); return co
 const chrome = spawn(CHROME, ['--headless=new', `--remote-debugging-port=${PORT}`, `--user-data-dir=${mkdtempSync(join(tmpdir(), 'tl-cdp-'))}`,
   '--window-size=1600,1000', '--enable-unsafe-swiftshader', '--autoplay-policy=no-user-gesture-required',
   '--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream', 'about:blank'], { stdio: 'ignore' });
+// Always close the test browser, even when the run stops early.
+process.on('exit', () => { try { chrome.kill(); } catch { /* already gone */ } });
+process.on('uncaughtException', (err) => {
+  const busy = /timed out after 30 s/.test(String(err?.message));
+  console.log(busy
+    ? `UI test stopped: the browser did not answer for 30 s (${err.message.replace('timed out after 30 s: ', '')}). The computer is probably too busy; close other heavy apps and run it again.`
+    : `UI test stopped by an error: ${err?.stack ?? err}`);
+  process.exit(2);
+});
+process.on('unhandledRejection', (err) => { throw err; });
 let target;
 for (let i = 0; i < 50 && !target; i++) { await sleep(300); try { target = (await (await fetch(`http://127.0.0.1:${PORT}/json`)).json()).find((t) => t.type === 'page'); } catch { /* not up yet */ } }
 const ws = new WebSocket(target.webSocketDebuggerUrl);
