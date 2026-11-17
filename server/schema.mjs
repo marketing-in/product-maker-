@@ -204,3 +204,60 @@ export const BRIEF_TOOL = {
     },
   },
 };
+
+// Firmware for a designed product: a complete PlatformIO project for its controller.
+export const FIRMWARE_TOOL = {
+  name: 'record_firmware',
+  description: 'Record the firmware for this product as a complete PlatformIO project.',
+  input_schema: {
+    type: 'object',
+    required: ['controller', 'framework', 'platformioEnv', 'summary', 'pins', 'files', 'build', 'test', 'assumptions'],
+    properties: {
+      controller: { type: 'string', description: 'The chip the firmware runs on, with its refDes, such as "U1 ESP32-C3-MINI-1".' },
+      framework: { type: 'string', description: 'arduino, espidf, pico-sdk, zephyr and so on.' },
+      platformioEnv: {
+        type: 'object',
+        required: ['platform', 'board', 'framework'],
+        properties: {
+          platform: { type: 'string', description: 'PlatformIO platform, such as espressif32, raspberrypi, atmelavr, ststm32.' },
+          board: { type: 'string', description: 'PlatformIO board id, such as esp32-c3-devkitm-1.' },
+          framework: { type: 'string' },
+          libDeps: { type: 'array', items: { type: 'string' }, description: 'lib_deps entries, pinned to a version.' },
+          buildFlags: { type: 'array', items: { type: 'string' } },
+          monitorSpeed: { type: 'number' },
+        },
+      },
+      summary: { type: 'string', description: 'Three to five sentences: what the firmware does, in plain words.' },
+      pins: {
+        type: 'array',
+        description: 'Every pin the firmware uses.',
+        items: {
+          type: 'object',
+          required: ['pin', 'signal', 'direction', 'connectsTo'],
+          properties: {
+            pin: { type: 'string', description: 'GPIO name or number as written in the code.' },
+            signal: { type: 'string' },
+            direction: { type: 'string', enum: ['input', 'output', 'analog in', 'pwm out', 'bus', 'other'] },
+            connectsTo: { type: 'string', description: 'The part (refDes and name) at the other end.' },
+            note: { type: 'string' },
+          },
+        },
+      },
+      files: {
+        type: 'array',
+        description: 'The source files, complete and ready to build: src/main.cpp at least, plus any headers. Do not include platformio.ini; it is written from platformioEnv.',
+        items: {
+          type: 'object',
+          required: ['path', 'content'],
+          properties: {
+            path: { type: 'string', description: 'Relative path such as src/main.cpp or include/pins.h.' },
+            content: { type: 'string' },
+          },
+        },
+      },
+      build: { type: 'array', items: { type: 'string' }, description: 'Steps to build and flash it, as plain sentences with the commands.' },
+      test: { type: 'array', items: { type: 'string' }, description: 'Bench tests to run after flashing, safest first.' },
+      assumptions: { type: 'array', items: { type: 'string' }, description: 'Every choice not fixed by the design: pins picked, protocols, timings.' },
+    },
+  },
+};

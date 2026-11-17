@@ -404,7 +404,7 @@ export default function App() {
     setBusy(true);
     try {
       const json = await post('/api/analyze', { instruction: text, images, previous: { ...td, meta: undefined } });
-      const next = json.teardown as Teardown;
+      const next = { ...(json.teardown as Teardown), firmware: td.firmware };
       setTd(next);
       setOriginal(next);
       setHistory([]);
@@ -936,7 +936,7 @@ export default function App() {
               {tab === 'sim' && <Simulation td={td} selectedId={selectedId} onSelect={setSelectedId} />}
               {tab === 'power' && <PowerTree td={td} selectedId={selectedId} onSelect={setSelectedId} />}
               {tab === 'bom' && <BomTable td={td} selectedId={selectedId} onSelect={setSelectedId} />}
-              {tab === 'firmware' && <Firmware td={td} rea={status?.rea ?? null} />}
+              {tab === 'firmware' && <Firmware td={td} rea={status?.rea ?? null} canGenerate={canAnalyse} onFirmware={(fw) => edit({ ...td, firmware: fw })} />}
             </div>
           </div>
 

@@ -11,15 +11,17 @@ import express from 'express';
 import multer from 'multer';
 
 import { boardBrief, importBoard } from './boardImport.mjs';
-import { BRIEF_PROMPT, FIRMWARE_PROMPT, SYSTEM_PROMPT, userText } from './prompt.mjs';
+import { BRIEF_PROMPT, FIRMWARE_GEN_PROMPT, FIRMWARE_PROMPT, SYSTEM_PROMPT, userText } from './prompt.mjs';
 import { inspectFirmware, reaStatus } from './rea.mjs';
 import { sanitizeTeardown } from './sanitize.mjs';
 import { swarmBuild } from './swarm.mjs';
 import { cacheGet, cachePut, cacheStats, deleteProject, getProject, listProjects, requestKey, saveProject, validId } from './store.mjs';
-import { BRIEF_TOOL, TEARDOWN_TOOL } from './schema.mjs';
+import { BRIEF_TOOL, FIRMWARE_TOOL, TEARDOWN_TOOL } from './schema.mjs';
 
 const PORT = Number(process.env.PORT || 8787);
 const MODEL = process.env.CLAUDE_MODEL || 'claude-fable-5-2';
+// Firmware is written by a lower-cost model: Opus 5.5 is half the price of Fable 5.2 per token.
+const FIRMWARE_MODEL = process.env.FIRMWARE_MODEL || 'claude-opus-5-5';
 // Hosted on Vercel: no disk that lasts, a time limit on every request, and a public address.
 const HOSTED = Boolean(process.env.VERCEL);
 // The access code that protects the paid endpoints. Required when hosted, optional on this computer.
@@ -32,14 +34,14 @@ const MAX_IMAGES = 6;
 // Requests that are running now, by cache key. A second identical request waits for the first
 // instead of paying for another, and a result is stored even if the browser has gone away.
 const inFlight = new Map();
-async function once(key, request, run) {
+async function once(key, request, run, model = MODEL) {
   const hit = await cacheGet(key);
   if (hit) return { ...hit, cached: true };
   if (!inFlight.has(key)) {
     inFlight.set(key, (async () => {
       try {
         const { result, usage } = await run();
-        await cachePut(key, { request, result, usage, model: MODEL });
+        await cachePut(key, { request, result, usage, model });
         return { ...result, usage };
       } finally {
         inFlight.delete(key);
@@ -70,7 +72,7 @@ app.use(express.json({ limit: '40mb' }));
 
 // Anything that spends Claude credit needs the access code. Without a code set, a hosted copy
 // refuses outright: a public address must never be an open tap on the owner's key.
-const PAID = new Set(['/api/brief', '/api/analyze', '/api/build', '/api/firmware']);
+const PAID = new Set(['/api/brief', '/api/analyze', '/api/build', '/api/firmware', '/api/firmware-gen']);
 app.use((req, res, next) => {
   if (!PAID.has(req.path) || (!HOSTED && !PASSWORD)) return next();
   if (!PASSWORD) {
@@ -93,7 +95,7 @@ app.use('/api/projects', (_req, res, next) => {
 
 app.get('/api/status', async (_req, res) => {
   res.json({
-    hasKey: hasKey(), model: MODEL, effort: EFFORT, stored: await cacheStats(),
+    hasKey: hasKey(), model: MODEL, firmwareModel: FIRMWARE_MODEL, effort: EFFORT, stored: await cacheStats(),
     hosted: HOSTED, locked: HOSTED && !PASSWORD,
     rea: HOSTED ? { available: false, command: 'rea' } : await reaStatus(),
   });
@@ -292,6 +294,110 @@ app.post('/api/build', async (req, res) => {
   };
   job.listeners.add(listener);
   req.on('close', () => { clearInterval(ping); job.listeners.delete(listener); });
+});
+
+// Firmware for a designed product. The browser sends the design; the server writes the facts
+// out for the model itself, so only the parts, wiring and controls reach the prompt.
+function designFacts(td) {
+  const t = (v, n = 200) => (typeof v === 'string' ? v.replace(/\s+/g, ' ').trim().slice(0, n) : '');
+  const parts = (Array.isArray(td?.parts) ? td.parts : []).slice(0, 120);
+  const byId = new Map(parts.map((p) => [p?.id, p]));
+  const name = (id) => { const p = byId.get(id); return p ? `${t(p.refDes, 30) ? `${t(p.refDes, 30)} ` : ''}${t(p.name, 80)}` : t(id, 40); };
+  const electrical = parts.filter((p) => !['enclosure', 'fastener'].includes(p?.category));
+  return [
+    `Product: ${t(td?.product?.name, 120)}. ${t(td?.product?.summary, 700)}`,
+    `Power in: ${t(td?.product?.powerInput, 160) || 'not stated'}.`,
+    '',
+    'Parts (id | refDes and name | category | package | likely part numbers | mounted on | what it does):',
+    ...electrical.map((p) => [t(p.id, 40), name(p.id), t(p.category, 20), t(p.package, 80), (Array.isArray(p.candidates) ? p.candidates : []).map((c) => t(c, 40)).join(', '), p.parentId ? name(p.parentId) : '', t(p.function, 160)].join(' | ')),
+    '',
+    'Connections (from -> to | kind | name | protocol or medium | values):',
+    ...(Array.isArray(td?.connections) ? td.connections : []).slice(0, 220).filter((c) => c?.kind !== 'mechanical')
+      .map((c) => `${name(c.from)} -> ${name(c.to)} | ${t(c.kind, 12)} | ${t(c.label, 60)} | ${t(c.protocol || c.medium, 80)} | ${[c.voltageV != null ? `${c.voltageV} V` : '', c.currentA != null ? `${c.currentA} A` : ''].filter(Boolean).join(' ')}`),
+    '',
+    'Controls (what the user operates):',
+    ...((Array.isArray(td?.controls) && td.controls.length) ? td.controls.slice(0, 30).map((c) => `${t(c.label, 40)} on ${name(c.partId)}: ${t(c.effect, 20)}. ${t(c.action, 200)} Affects: ${(Array.isArray(c.affects) ? c.affects : []).map(name).join(', ') || 'n/a'}`) : ['None recorded. Infer them from the switches, buttons and sensors above.']),
+  ].join('\n').slice(0, 30000);
+}
+
+const safePath = (p) => {
+  const clean = String(p ?? '').replace(/\\/g, '/').replace(/^\/+/, '').split('/').filter((s) => s && s !== '.' && s !== '..').join('/');
+  return /^[\w.\-/]{1,120}$/.test(clean) ? clean : null;
+};
+
+app.post('/api/firmware-gen', async (req, res) => {
+  if (!hasKey()) {
+    res.status(503).json({ error: 'No Claude API key is configured. Add ANTHROPIC_API_KEY to .env and restart the server.' });
+    return;
+  }
+  const td = req.body?.teardown;
+  if (!td || typeof td !== 'object' || !Array.isArray(td.parts) || !td.parts.length) {
+    res.status(400).json({ error: 'Open a design first.' });
+    return;
+  }
+  const facts = designFacts(td);
+  try {
+    const key = requestKey('firmware', FIRMWARE_MODEL, { facts });
+    const out = await once(key, { product: td.product?.name ?? '', facts: facts.length }, async () => {
+      const message = await client().messages.stream({
+        model: FIRMWARE_MODEL,
+        max_tokens: 48000,
+        // Opus 5.5 thinks by default and does not accept a forced tool choice; effort sets the depth.
+        output_config: { effort: 'medium' },
+        system: FIRMWARE_GEN_PROMPT,
+        tools: [FIRMWARE_TOOL],
+        tool_choice: { type: 'auto', disable_parallel_tool_use: true },
+        messages: [{ role: 'user', content: `The product design follows. Write its firmware.\n\n${facts}` }],
+      }).finalMessage();
+      if (message.stop_reason === 'refusal') throw new Reply(422, 'Claude declined to write firmware for this design.');
+      if (message.stop_reason === 'max_tokens') throw new Reply(502, 'The firmware was too long to finish. Try again, or simplify the design.');
+      const call = message.content.find((b) => b.type === 'tool_use');
+      if (!call) throw new Reply(502, 'Claude answered without firmware. Try again.');
+      const f = call.input ?? {};
+      const str = (v, n) => (typeof v === 'string' ? v.trim().slice(0, n) : '');
+      const strs = (v, n = 20) => (Array.isArray(v) ? v : []).map((x) => str(x, 400)).filter(Boolean).slice(0, n);
+      const env = f.platformioEnv ?? {};
+      const files = (Array.isArray(f.files) ? f.files : []).slice(0, 16)
+        .map((x) => ({ path: safePath(x?.path), content: typeof x?.content === 'string' ? x.content.slice(0, 200000) : '' }))
+        .filter((x) => x.path && x.content && !/^platformio\.ini$/i.test(x.path));
+      if (!files.length) throw new Reply(502, 'Claude answered without any source files. Try again.');
+      return {
+        usage: message.usage,
+        result: {
+          firmware: {
+            controller: str(f.controller, 120),
+            framework: str(f.framework, 40),
+            env: {
+              platform: str(env.platform, 60) || 'espressif32',
+              board: str(env.board, 80) || 'esp32dev',
+              framework: str(env.framework, 40) || 'arduino',
+              libDeps: strs(env.libDeps, 20),
+              buildFlags: strs(env.buildFlags, 20),
+              monitorSpeed: Number.isFinite(env.monitorSpeed) ? env.monitorSpeed : 115200,
+            },
+            summary: str(f.summary, 1500),
+            pins: (Array.isArray(f.pins) ? f.pins : []).slice(0, 80).map((p) => ({
+              pin: str(p?.pin, 30), signal: str(p?.signal, 80), direction: str(p?.direction, 20), connectsTo: str(p?.connectsTo, 120), note: str(p?.note, 200),
+            })).filter((p) => p.pin),
+            files,
+            build: strs(f.build),
+            test: strs(f.test),
+            assumptions: strs(f.assumptions, 30),
+            model: message.model,
+            createdAt: new Date().toISOString(),
+          },
+        },
+      };
+    }, FIRMWARE_MODEL);
+    if (!res.writableEnded && !res.destroyed) res.json(out);
+  } catch (err) {
+    if (res.destroyed) return;
+    if (err instanceof Anthropic.APIError || err instanceof Reply) apiError(res, err);
+    else {
+      console.error('[firmware-gen]', err);
+      res.status(500).json({ error: err?.message || 'The firmware could not be written.' });
+    }
+  }
 });
 
 // Saved projects: the plan, the answers, the design with its edits, and the chat.

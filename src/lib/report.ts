@@ -526,6 +526,7 @@ export async function buildReport(td: Teardown): Promise<Uint8Array> {
     'Using and building it: control flow for each button, assembly order',
     ...(brds.some((b) => b.footprints.length) ? ['Circuit boards: layout with copper traces and part placement'] : []),
     ...(td.parts.some((p) => p.category === 'enclosure') ? ['Housing: fit in 3D, how each part is moulded or cut, fixings'] : []),
+    ...(td.firmware ? ['Firmware: pin map, build, flash and bench tests'] : []),
     'Bill of materials: cost by group and every part',
     'Checks, safety, open questions and how to confirm them',
   ];
@@ -642,6 +643,32 @@ export async function buildReport(td: Teardown): Promise<Uint8Array> {
     if (notes.length) { r.h2('Mould and fixing notes', 'Housing, fit and mould'); r.bullets(notes.slice(0, 18), 'Housing, fit and mould'); }
     const issues = fit.rows.filter((row) => row.status !== 'inside');
     if (issues.length) { r.h2('Fit items to look at', 'Housing, fit and mould'); r.bullets(issues.slice(0, 14).map((row) => `${row.part.name}: ${row.note}`), 'Housing, fit and mould'); }
+  }
+
+  // ---- firmware, when it has been written
+  const fw = td.firmware;
+  if (fw) {
+    r.page('Firmware');
+    r.h2('Firmware', 'Firmware');
+    r.para(fw.summary, 9.5);
+    r.facts([
+      ['Controller', fw.controller],
+      ['Framework', fw.framework],
+      ['Board', fw.env.board],
+      ['Code', `${fw.files.length} files, ${fw.files.reduce((n, f) => n + f.content.split('\n').length, 0)} lines`],
+    ]);
+    r.h2('Pin map', 'Firmware');
+    r.table(
+      [{ title: 'Pin', w: 12 }, { title: 'Signal', w: 24 }, { title: 'Direction', w: 13 }, { title: 'Connects to', w: 30 }, { title: 'Note', w: 30 }],
+      fw.pins.map((p) => [p.pin, p.signal, p.direction, p.connectsTo, p.note ?? '']),
+      'Firmware',
+    );
+    r.h2('Build and flash', 'Firmware');
+    r.bullets(fw.build, 'Firmware', INK2, true);
+    r.h2('Test on the bench', 'Firmware');
+    r.bullets(fw.test, 'Firmware', INK2, true);
+    if (fw.assumptions.length) { r.h2('Assumptions', 'Firmware'); r.bullets(fw.assumptions, 'Firmware'); }
+    r.para(`The source files (${fw.files.map((f) => f.path).join(', ')}) are in the firmware folder of the full download. Written from the design; not compiled or run on hardware by Teardown Lab.`, 8.5, INK3);
   }
 
   // ---- 7 bill of materials

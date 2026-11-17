@@ -107,6 +107,21 @@ export interface ControlSpec {
   affects?: string[];
 }
 
+/** Firmware written for the product's controller: a PlatformIO project. */
+export interface FirmwareBundle {
+  controller: string;
+  framework: string;
+  env: { platform: string; board: string; framework: string; libDeps: string[]; buildFlags: string[]; monitorSpeed: number };
+  summary: string;
+  pins: { pin: string; signal: string; direction: string; connectsTo: string; note?: string }[];
+  files: { path: string; content: string }[];
+  build: string[];
+  test: string[];
+  assumptions: string[];
+  model?: string;
+  createdAt: string;
+}
+
 export interface Teardown {
   product: {
     name: string;
@@ -122,6 +137,8 @@ export interface Teardown {
   unknowns: string[];
   verifySteps: string[];
   safety: string[];
+  /** Firmware written for this design, when the user has asked for it. */
+  firmware?: FirmwareBundle;
   meta: {
     source: 'claude' | 'sample';
     model?: string;

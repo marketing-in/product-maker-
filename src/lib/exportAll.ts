@@ -4,6 +4,7 @@ import { buildBomCsv } from './exportBom';
 import type { GerberFile } from './exportGerber';
 import { zipCompressed } from './exportGerber';
 import { buildPcbProject } from './exportPcbProject';
+import { firmwareFiles } from './firmware';
 import { buildStep } from './exportStep';
 import { slug } from './geometry';
 import { buildReport } from './report';
@@ -48,6 +49,7 @@ export async function buildEverything(td: Teardown, onStep: (what: string) => vo
   const brds = boards(td);
   if (brds.length) for (const f of buildPcbProject(td, brds)) add(`pcb/${f.name}`, f.text);
 
+  if (td.firmware) for (const f of firmwareFiles(td.firmware, td, 'firmware')) add(f.name, f.text);
   add(`bom/${base}-bom.csv`, buildBomCsv(td));
   add(`data/${base}-teardown.json`, JSON.stringify(td, null, 2));
   add('README.txt', `${td.product.name}
@@ -58,6 +60,7 @@ ${base}-report.pdf      The product report: pictures, block diagram, power flow,
 images/                 Pictures of the product, assembled and exploded.
 cad/                    STEP models, assembled and exploded. Opens in FreeCAD, Fusion, SolidWorks, Onshape.
 render/                 Blender scene script: Scripting tab, open, Run, then F12 for a product shot.
+firmware/               ${td.firmware ? `PlatformIO project for ${td.firmware.controller}: pio run -t upload. Not compiled or tested by Teardown Lab.` : 'Not written yet. Use Write the firmware in the Firmware tab, then download again.'}
 pcb/                    ${brds.length ? 'KiCad board files, Gerber and drill files for every board, and a Kitspace parts list.' : 'No circuit board in this design.'}
 bom/                    Bill of materials (CSV).
 data/                   The whole design as JSON. Keep it to reopen or compare later.

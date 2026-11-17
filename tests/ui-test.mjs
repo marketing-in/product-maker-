@@ -126,6 +126,11 @@ const layout = async (label) => {
       if (!/(auto|scroll)/.test(st.overflowX) || el.matches(SCROLLERS) || el.closest('.board-scroll, .powertree-scroll, .bomtab')) continue;
       if (el.scrollWidth > el.clientWidth + 2 && el.getBoundingClientRect().width > 0) problems.push('sideways scrollbar in .' + (el.className || el.tagName).toString().split(' ')[0] + ' (' + (el.scrollWidth - el.clientWidth) + 'px)');
     }
+    // Code blocks: the text must not sit on its own light background inside a dark block.
+    for (const c of document.querySelectorAll('pre code')) {
+      const bg = getComputedStyle(c).backgroundColor;
+      if (bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent') problems.push('code text has its own background inside a code block (unreadable)');
+    }
     // Images and canvases that failed or have no size.
     for (const img of document.querySelectorAll('img')) if (img.complete && !img.naturalWidth) problems.push('broken image ' + (img.alt || img.src.slice(0, 40)));
     for (const cv of document.querySelectorAll('.viewer-canvas canvas')) { const r = cv.getBoundingClientRect(); if (r.width < 20 || r.height < 20) problems.push('3D view has no size (' + Math.round(r.width) + 'x' + Math.round(r.height) + ')'); }

@@ -2,7 +2,8 @@ import { apiFetch } from '../lib/api';
 import { FileUp } from 'lucide-react';
 import { useRef, useState } from 'react';
 
-import type { Teardown } from '../lib/types';
+import type { FirmwareBundle, Teardown } from '../lib/types';
+import WriteFirmware from './WriteFirmware';
 import { fileSize } from './bits';
 
 export interface ReaStatus { available: boolean; version?: string; command?: string }
@@ -28,9 +29,11 @@ interface Result {
 interface Props {
   td: Teardown;
   rea: ReaStatus | null;
+  canGenerate: boolean;
+  onFirmware: (fw: FirmwareBundle | undefined) => void;
 }
 
-export default function Firmware({ td, rea }: Props) {
+export default function Firmware({ td, rea, canGenerate, onFirmware }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -59,7 +62,9 @@ export default function Firmware({ td, rea }: Props) {
 
   return (
     <div className="fwtab">
-      <h2>Firmware and software</h2>
+      <WriteFirmware td={td} canGenerate={canGenerate} onFirmware={onFirmware} />
+
+      <h2 className="fw-inspect-head">Inspect existing firmware</h2>
       <p className="lede">
         Photos explain the hardware. If you also have something that runs on it, such as a firmware update file, a flash
         dump read from the memory chip or the companion app, <a href="https://github.com/morluto/rea" target="_blank" rel="noreferrer">rea</a> can
@@ -68,9 +73,12 @@ export default function Firmware({ td, rea }: Props) {
 
       {missing && (
         <div className="callout" role="status">
-          <h3>rea is not installed on this computer</h3>
-          <p>Install it once, then restart Teardown Lab:</p>
-          <pre><code>npm install --global rea-agents</code></pre>
+          <h3>rea is not set up on this computer</h3>
+          <p>
+            Set it up once inside this project, then restart Teardown Lab. It brings its own Node (rea needs 24.22.1 or
+            newer), so no global install or administrator password is needed:
+          </p>
+          <pre><code>npm run setup:rea</code></pre>
           <p>
             Region scans of raw firmware also need Binwalk on Linux. Point rea at it with
             {' '}<code>REA_BINWALK_COMMAND=/usr/bin/binwalk</code>. Container formats rea reads natively need nothing extra.
