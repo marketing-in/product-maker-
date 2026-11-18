@@ -18,6 +18,9 @@ export interface Check {
   tab: TabId;
 }
 
+/** One copper pad of an uploaded footprint, relative to the footprint centre. */
+export interface ImportedPad { x: number; y: number; w: number; h: number; round?: boolean }
+
 /** A board the user uploaded, as read by the server. Millimetres from the lower-left corner. */
 export interface ImportedBoard {
   kind: 'gerber' | 'kicad';
@@ -25,7 +28,18 @@ export interface ImportedBoard {
   board: { width: number; height: number; thickness: number };
   holes: { x: number; y: number; d: number }[];
   mounting: { x: number; y: number; d: number }[];
-  components: { ref: string; value: string; footprint: string; side: 'top' | 'bottom'; pads: number; x: number; y: number; w: number; h: number }[];
+  components: {
+    ref: string; value: string; footprint: string; side: 'top' | 'bottom'; pads: number; x: number; y: number; w: number; h: number;
+    /** Measured by the server from the pads; missing on boards imported before this was added. */
+    padList?: ImportedPad[];
+    layout?: 'single' | 'pair' | 'row' | 'dual-h' | 'dual-v' | 'quad' | 'grid' | 'mixed';
+    pitch?: number;
+    ep?: boolean;
+    th?: number;
+    anchors?: number;
+    /** What the app thinks the part is, sent to Claude with the board. */
+    guess?: string;
+  }[];
   nets: number;
   layers: number;
   exact: boolean;
@@ -62,7 +76,11 @@ export function validate(td: Teardown): Check[] {
   const driven = new Set(td.connections.filter((c) => c.kind === 'signal').map((c) => c.to));
   const unpowered = td.parts.filter((p) => (p.category === 'ic' || p.category === 'sensor' || p.category === 'display')
     && !fed.has(p.id) && !feeds.has(p.id) && !(p.category !== 'ic' && driven.has(p.id)));
-  list.push(power.length === 0
+  // A board read from a file has its parts but not yet its nets: say so instead of failing it.
+  const fromFile = td.meta.source === 'board' && td.connections.length === 0;
+  list.push(fromFile
+    ? { id: 'erc', title: 'Electrical rules', status: 'info', detail: 'The nets are not read from board files yet, so supplies were not checked. Ask the agent to work out the circuit.', tab: 'power' }
+    : power.length === 0
     ? { id: 'erc', title: 'Electrical rules', status: 'fail', detail: 'No power connections. Nothing in the design is supplied.', tab: 'power' }
     : unpowered.length
       ? { id: 'erc', title: 'Electrical rules', status: 'warn', detail: `${unpowered.length} active ${unpowered.length === 1 ? 'part has' : 'parts have'} no supply drawn: ${names(unpowered)}.`, tab: 'arch' }
@@ -71,7 +89,9 @@ export function validate(td: Teardown): Check[] {
   // Connectivity: parts on a board that nothing connects to.
   const wired = new Set(td.connections.flatMap((c) => [c.from, c.to]));
   const loose = td.parts.filter((p) => p.parentId && ['ic', 'power', 'connector', 'sensor'].includes(p.category) && !wired.has(p.id));
-  list.push(loose.length
+  list.push(fromFile
+    ? { id: 'nets', title: 'Connections', status: 'info', detail: `${td.parts.filter((p) => p.parentId).length} part lines placed from the pads; the wiring between them is not read yet.`, tab: 'board' }
+    : loose.length
     ? { id: 'nets', title: 'Connections', status: 'warn', detail: `${loose.length} board ${loose.length === 1 ? 'part is' : 'parts are'} not connected to anything: ${names(loose)}.`, tab: 'arch' }
     : { id: 'nets', title: 'Connections', status: 'pass', detail: 'Every chip and connector on a board is connected.', tab: 'arch' });
 

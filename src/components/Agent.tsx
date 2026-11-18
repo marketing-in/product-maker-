@@ -162,7 +162,13 @@ export default function Agent({ project, td, checks, busy, canAnalyse, onAnswer,
               {project.board.nets ? `, ${project.board.nets} nets` : ''}.
             </p>
             {project.board.notes.map((n) => <p key={n} className="msg-meta">{n}</p>)}
-            <p>Next I work out what the board is, then design a two-piece housing round it: walls, clearance, screw bosses and an opening for each connector and switch.</p>
+            {td?.meta.source === 'board' && (
+              <p>
+                I generated <strong>{td.parts.filter((x) => x.parentId).reduce((s, x) => s + x.qty, 0)} parts</strong> on it from the pad patterns: chips, passives, connectors and switches, each with a body
+                and height typical for its package. They are in the 3D view now; this step is free.
+              </p>
+            )}
+            <p>Next, if you want, I work out what the board does and design a two-piece housing round it: walls, clearance, screw bosses and an opening for each connector and switch.</p>
             {phase === 'plan' && (
               <button type="button" className="btn btn-primary" onClick={onBuild} disabled={!canAnalyse}>Understand it and design the housing</button>
             )}

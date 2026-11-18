@@ -27,9 +27,9 @@ const shot = async (name, selector) => {
   console.log('shot', name, selector ?? 'window');
 };
 const click = (text) => js(`(() => { const b = [...document.querySelectorAll('button')].find((b) => b.textContent.trim() === ${JSON.stringify(text)}); b?.click(); return !!b; })()`);
-const tab = (label) => js(`[...document.querySelectorAll('.tabs button')].find((b) => b.textContent.trim() === ${JSON.stringify(label)})?.click()`);
+const tab = (label) => js(`[...document.querySelectorAll('[role=tab]')].find((b) => (b.getAttribute('aria-label') || b.textContent).trim() === ${JSON.stringify(label)})?.click()`);
 const go = async (path) => { await send('Page.navigate', { url: 'about:blank' }); await sleep(150); await send('Page.navigate', { url: BASE + path }); await sleep(3500); };
-const openSaved = async (re) => { await go('/'); for (let i = 0; i < 20 && !(await js(`!!document.querySelector('.saved-open')`)); i++) await sleep(300); await js(`[...document.querySelectorAll('.saved-open')].find((b) => ${re}.test(b.textContent) && /Design/.test(b.textContent))?.click()`); await sleep(3000); };
+const openSaved = async (re) => { await go('/#start'); for (let i = 0; i < 20 && !(await js(`!!document.querySelector('.saved-open')`)); i++) await sleep(300); await js(`[...document.querySelectorAll('.saved-open')].find((b) => ${re}.test(b.textContent) && /Design/.test(b.textContent))?.click()`); await sleep(3000); };
 await send('Runtime.enable'); await send('Page.enable');
 // Twice the pixels, so the pictures stay sharp in print.
 await send('Emulation.setDeviceMetricsOverride', { width: 1600, height: 1000, deviceScaleFactor: 2, mobile: false });
@@ -38,13 +38,13 @@ await send('Emulation.setDeviceMetricsOverride', { width: 1600, height: 1000, de
 const CAMERA = '/sports tracking camera/i';
 const setRange = (v) => js(`(() => { const r = document.querySelector('#explode-range'); const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; set.call(r, '${v}'); r.dispatchEvent(new Event('input', { bubbles: true })); })()`);
 const selectPart = async (re) => {
-  await js(`[...document.querySelectorAll('.left-switch button')].find((b) => b.textContent.startsWith('Parts'))?.click()`); await sleep(300);
+  await js(`(() => { const b = document.querySelector('.rail-btn[aria-pressed]'); if (b?.getAttribute('aria-pressed') === 'false') b.click(); })()`); await sleep(300);
   await js(`[...document.querySelectorAll('.partrow')].find((r) => ${re}.test(r.textContent))?.click()`); await sleep(900);
-  await js(`[...document.querySelectorAll('.left-switch button')].find((b) => b.textContent.startsWith('Agent'))?.click()`);
+  await js(`document.querySelector('.rail-btn[aria-pressed="true"]')?.click()`);
 };
 
 // Start page, in "take apart a product I have" mode.
-await go('/'); await click('Take apart a product I have'); await sleep(600);
+await go('/#start'); await click('Take apart a product I have'); await sleep(600);
 // The overview is about the camera, so leave the other saved projects out of the picture.
 await js(`document.querySelectorAll('.saved li').forEach((li) => { if (!/sports tracking camera/i.test(li.textContent)) li.style.display = 'none'; })`); await sleep(300);
 await shot('start');

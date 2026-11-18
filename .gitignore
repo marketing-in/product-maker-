@@ -11,3 +11,6 @@ tools/rea/node_modules
 # Downloads the overview capture uses for its report pictures
 docs/overview/shots/*.pdf
 docs/overview/shots/*.zip
+
+# Design review screenshots: working files, regenerated on demand
+.impeccable/review/

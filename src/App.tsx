@@ -1,22 +1,20 @@
 import { apiFetch, setHosted } from './lib/api';
-import { ChevronDown, Download, Pause, Play, Plus, RotateCcw, Trash2 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import {
+  BookOpen, Box, ChevronDown, Compass, CircuitBoard, ClipboardList, Cpu, Download, FileUp, Gamepad2, Hammer, Info, ListTree, MessageSquare,
+  Move3d, Network, Package, Pause, Play, Plus, RotateCcw, SlidersHorizontal, Table2, Trash2, Zap, type LucideIcon,
+} from 'lucide-react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, useTransition, type CSSProperties } from 'react';
 
 import Agent, { type Project } from './components/Agent';
-import Architecture from './components/Architecture';
-import BareBoard from './components/BareBoard';
-import BomTable from './components/BomTable';
-import Designer from './components/Designer';
-import Firmware, { type ReaStatus } from './components/Firmware';
-import FitMould from './components/FitMould';
-import Guide, { type TabId } from './components/Guide';
+import type { ReaStatus } from './components/Firmware';
+import Home from './components/Home';
+import Tour, { type TourStep } from './components/Tour';
+import type { TabId } from './components/Guide';
 import Inspector from './components/Inspector';
 import Intake from './components/Intake';
 import { BoardPreview, Make, Plan, type ExportKind } from './components/Make';
 import PartList from './components/PartList';
-import PowerTree from './components/PowerTree';
-import Simulation from './components/Simulation';
-import Simulator from './components/Simulator';
+
 import Viewer3D, { KIND_COLOR, type AgentCursor } from './components/Viewer3D';
 
 // One colour per agent cursor. Distinct from the selection amber and the wire colours.
@@ -30,6 +28,7 @@ import { buildStep } from './lib/exportStep';
 import { slug } from './lib/geometry';
 import { SAMPLE } from './lib/sample';
 import { validate, type Brief, type ImportedBoard } from './lib/validate';
+import { boardDesign, guessLabel } from './lib/boardParts';
 
 /** Draws an SVG to a PNG in the browser, so the model can look at the board. */
 async function svgToPng(svg: string, maxEdge = 1600): Promise<string | null> {
@@ -60,19 +59,42 @@ import { KIND_LABEL, type ConnectionKind, type Part, type Teardown, type Vec3 } 
 interface Status { hasKey: boolean; model: string; stored?: number; hosted?: boolean; locked?: boolean; rea: ReaStatus }
 type Tab = TabId;
 
-const TABS: { id: Tab; label: string }[] = [
-  { id: 'view', label: 'Exploded view' },
-  { id: 'design', label: 'Design' },
-  { id: 'run', label: 'Simulator' },
-  { id: 'arch', label: 'Architecture' },
-  { id: 'board', label: 'Bare board' },
-  { id: 'fit', label: 'Fit and mould' },
-  { id: 'sim', label: 'Parameters' },
-  { id: 'power', label: 'Power tree' },
-  { id: 'bom', label: 'Bill of materials' },
-  { id: 'firmware', label: 'Firmware' },
-  { id: 'make', label: 'Make' },
-  { id: 'guide', label: 'Guide' },
+// The work views load on first use, so the app opens fast; React keeps the current view on screen
+// while the next one loads (see goTab), so switching never flashes an empty panel.
+const Architecture = lazy(() => import('./components/Architecture'));
+const BareBoard = lazy(() => import('./components/BareBoard'));
+const BomTable = lazy(() => import('./components/BomTable'));
+const Designer = lazy(() => import('./components/Designer'));
+const Firmware = lazy(() => import('./components/Firmware'));
+const FitMould = lazy(() => import('./components/FitMould'));
+const Guide = lazy(() => import('./components/Guide'));
+const PowerTree = lazy(() => import('./components/PowerTree'));
+const Simulation = lazy(() => import('./components/Simulation'));
+const Simulator = lazy(() => import('./components/Simulator'));
+
+/** Shown only the first time a view's code loads. */
+function ViewSkeleton() {
+  return (
+    <div className="view-skeleton" role="status" aria-label="Loading the view">
+      <span /><span /><span />
+    </div>
+  );
+}
+
+/** The views, shown on the rail as an icon over a short name; the full name is the accessible label. */
+const TABS: { id: Tab; label: string; short: string; icon: LucideIcon; group: number }[] = [
+  { id: 'view', label: 'Exploded view', short: 'Model', icon: Box, group: 1 },
+  { id: 'design', label: 'Design', short: 'Design', icon: Move3d, group: 1 },
+  { id: 'run', label: 'Simulator', short: 'Operate', icon: Gamepad2, group: 1 },
+  { id: 'arch', label: 'Architecture', short: 'Blocks', icon: Network, group: 2 },
+  { id: 'board', label: 'Bare board', short: 'Board', icon: CircuitBoard, group: 2 },
+  { id: 'fit', label: 'Fit and mould', short: 'Fit', icon: Package, group: 2 },
+  { id: 'power', label: 'Power tree', short: 'Power', icon: Zap, group: 3 },
+  { id: 'sim', label: 'Parameters', short: 'Params', icon: SlidersHorizontal, group: 3 },
+  { id: 'bom', label: 'Bill of materials', short: 'BOM', icon: Table2, group: 3 },
+  { id: 'firmware', label: 'Firmware', short: 'Code', icon: Cpu, group: 3 },
+  { id: 'make', label: 'Make', short: 'Make', icon: Hammer, group: 4 },
+  { id: 'guide', label: 'Guide', short: 'Guide', icon: BookOpen, group: 4 },
 ];
 
 const DEFAULT_KINDS: Record<ConnectionKind, boolean> = {
@@ -105,6 +127,13 @@ export default function App() {
   const [td, setTd] = useState<Teardown | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>('view');
+  // A view switch is a transition: the rail answers at once, the old view stays until the new one is ready.
+  const [switching, startSwitch] = useTransition();
+  const [pendingTab, setPendingTab] = useState<Tab | null>(null);
+  const goTab = useCallback((id: Tab) => {
+    setPendingTab(id);
+    startSwitch(() => setTab(id));
+  }, []);
   const [explode, setExplode] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [kinds, setKinds] = useState(DEFAULT_KINDS);
@@ -118,7 +147,26 @@ export default function App() {
   // The model as it stands while a team of agents is still building it.
   const [live, setLive] = useState<Teardown | null>(null);
   const [liveZones, setLiveZones] = useState<{ id: string; name: string; center: Vec3; size: Vec3 }[]>([]);
-  const [leftView, setLeftView] = useState<'agent' | 'parts'>('agent');
+  const [side, setSide] = useState<'agent' | 'details' | 'tool'>('agent');
+  const [partsOpen, setPartsOpen] = useState(false);
+  const [toolSlot, setToolSlot] = useState<HTMLDivElement | null>(null);
+  // The design editor and the simulator put their controls in the right panel, under a tab of their own.
+  const toolTab = tab === 'design' ? 'Edit' : tab === 'run' ? 'Operate' : null;
+  const toolRef = useRef(toolTab);
+  toolRef.current = toolTab;
+  useEffect(() => {
+    if (toolTab) setSide('tool');
+    else setSide((s) => (s === 'tool' ? 'agent' : s));
+  }, [toolTab]);
+  // Picking a part opens it in the right panel: its edit fields on those views, otherwise its details.
+  const lastPicked = useRef<string | null>(null);
+  useEffect(() => {
+    if (selectedId && selectedId !== lastPicked.current) setSide(toolRef.current ? 'tool' : 'details');
+    lastPicked.current = selectedId;
+  }, [selectedId]);
+  // The home page first; #start opens the start screen, #sample the sample.
+  const [screen, setScreen] = useState<'home' | 'app'>(() => (/^#(start|sample)/.test(window.location.hash) ? 'app' : 'home'));
+  const [touring, setTouring] = useState(false);
   const [saved, setSaved] = useState<Saved[]>([]);
   const [saveNote, setSaveNote] = useState('');
   const refreshSaved = useCallback(() => {
@@ -157,10 +205,11 @@ export default function App() {
     const from = explodeRef.current;
     const to = from > 0.5 ? 0 : 1;
     const t0 = performance.now();
-    const dur = 1300;
+    // Reduced motion: the model jumps straight to the end state.
+    const dur = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 1300;
     let raf = 0;
     const step = (now: number) => {
-      const k = Math.min(1, (now - t0) / dur);
+      const k = dur ? Math.min(1, (now - t0) / dur) : 1;
       const eased = 1 - Math.pow(2, -9 * k);
       setExplode(k >= 1 ? to : from + (to - from) * eased);
       if (k < 1) raf = requestAnimationFrame(step);
@@ -297,7 +346,8 @@ export default function App() {
         // The model gets the measured data as text and a picture of the board to read.
         const { svgTop, svgBottom, ...facts } = p.board;
         void svgBottom;
-        board = facts;
+        // Claude gets the app's reading of each footprint; the raw pad lists stay here.
+        board = { ...facts, components: facts.components.map(({ padList, ...c }) => { void padList; return { ...c, guess: guessLabel({ ...c, padList }, p.board!) }; }) };
         const png = svgTop ? await svgToPng(svgTop) : null;
         images = png ? [png] : [];
       }
@@ -348,7 +398,7 @@ export default function App() {
     };
     setTd(null);
     setSelectedId(null);
-    setLeftView('agent');
+    setSide('agent');
     if (as === 'teardown' || images.length > 0) {
       void design({ ...p, mode: 'teardown' });
       return;
@@ -377,19 +427,19 @@ export default function App() {
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json.error || `The server answered ${res.status}.`);
       const board = json.board as ImportedBoard;
-      setTd(null);
-      setSelectedId(null);
-      setLeftView('agent');
+      setSide('agent');
       setProject({
         id: newId(), mode: 'board', board, prompt: note || `Design a housing for my board (${board.name}).`, images: [],
         phase: 'plan', brief: null, answers: {}, since: Date.now(), error: '', turns: [],
       });
+      // Every footprint becomes a 3D part straight away, recognised from its pads. No tokens.
+      open(boardDesign(board));
     } catch (err) {
       setImportError(err instanceof TypeError ? 'The local server is not reachable. Start it with “npm run dev”.' : (err as Error).message);
     } finally {
       setBusy(false);
     }
-  }, []);
+  }, [open]);
 
   /** A change asked for in the chat, once a design exists. */
   const refine = useCallback(async (text: string, images: string[]) => {
@@ -449,6 +499,7 @@ export default function App() {
     if (key === lastSaved.current) return;
     const t = window.setTimeout(() => {
       lastSaved.current = key;
+      setSaveNote('Saving…');
       apiFetch(`/api/projects/${project.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -480,11 +531,44 @@ export default function App() {
       setSelectedId(null);
       setExplode(0);
       setTab(next ? 'view' : 'plan');
-      setLeftView('agent');
+      setSide('agent');
+      setSaveNote('Saved');
     } catch {
       setSaveNote('That project could not be opened.');
     }
   }, []);
+
+  const enterApp = (hash = '#start') => { setScreen('app'); window.history.replaceState(null, '', hash); };
+  const goHome = () => { setTouring(false); setScreen('home'); window.history.replaceState(null, '', window.location.pathname); };
+  const startTour = () => {
+    if (!td) open(SAMPLE);
+    enterApp(td ? '#start' : '#sample');
+    setTouring(true);
+  };
+
+  // The tour walks the real app on whatever is open (the sample if nothing is), one region at a time.
+  const firstChip = td?.parts.find((p) => p.category === 'ic')?.id ?? td?.parts.find((p) => p.parentId)?.id ?? null;
+  const tourSteps: TourStep[] = [
+    { target: '.topbar', title: 'The top bar', body: 'The product’s name, the three stages (Brainstorm, Design, Make), whether your work is saved, and Export: every file in one menu.', before: () => { goTab('view'); setPartsOpen(false); setSide('agent'); setSelectedId(null); } },
+    { target: '.rail', title: 'Views', body: 'Every way to look at the same design, grouped by job. Change something in one view and every view, check and export follows.' },
+    { target: '.stage', title: 'The model', body: 'Drag to turn it, scroll to zoom, click a part to select it. The selected part is outlined in amber, the only place amber is used.' },
+    { target: '.stage-controls', title: 'The tool tray', body: 'Explode the model apart, choose which wires show by kind, and turn on volts, amps and watts or a see-through housing.' },
+    { target: '.viewcube', title: 'Camera', body: 'Jump to the top, front or side view, or back to 3D.' },
+    { target: '.tray-parts', title: 'Parts list', body: 'Every part grouped by kind, with a filter. The disc after a name says how sure the teardown is: full is observed, half inferred, empty assumed.', before: () => setPartsOpen(true) },
+    { target: '.side', title: 'Details', body: 'The selected part: what it is, what it does, the evidence, what is still unknown, and every wire into and out of it with its volts and amps.', before: () => { if (firstChip) setSelectedId(firstChip); setSide('details'); } },
+    { target: '.side', title: 'The agent', body: 'The plan, the progress and the checks. Ask for a change in a sentence, add photos if they help; the design is rebuilt and checked again.', before: () => { setPartsOpen(false); setSide('agent'); } },
+    { target: '.side', title: 'Design editor', body: 'On the Design view the right panel turns into the editor: drag a part in 3D or type its position and size. Pick a housing part to change the mould’s size and wall.', before: () => goTab('design') },
+    { target: '.side', title: 'Operate it', body: 'Press the product’s own buttons. The press travels along the wiring, and lights, motors, speakers and the camera respond.', before: () => goTab('run') },
+    { target: '.bench-main', title: 'Blocks', body: 'Each board with its chips, every supply rail and bus. Click a block to see only its links.', before: () => goTab('arch') },
+    { target: '.bench-main', title: 'Bare board', body: 'The board on its own: pads, routed copper and every part. Switch to 3D to show each layer (copper, solder mask, silkscreen) and spread them apart, or open the board-house preview.', before: () => goTab('board') },
+    { target: '.bench-main', title: 'Fit and mould', body: 'What fits inside the housing, what touches a wall and needs a cut-out, and how each moulded part opens out of its tool.', before: () => goTab('fit') },
+    { target: '.bench-main', title: 'Power tree', body: 'Power from the input to every load, with volts, amps and watts on each branch.', before: () => goTab('power') },
+    { target: '.bench-main', title: 'Parameters', body: 'Move the sliders (load, supply, temperature) and watch battery life, heat and current change.', before: () => goTab('sim') },
+    { target: '.bench-main', title: 'Bill of materials', body: 'Every part with its package, quantity, a likely part number and a rough cost.', before: () => goTab('bom') },
+    { target: '.bench-main', title: 'Firmware', body: 'Write a PlatformIO project for the controller on the board, with a pin map that matches it, or upload existing firmware to inspect.', before: () => goTab('firmware') },
+    { target: '.bench-main', title: 'Make', body: 'The checks, the cost, and the downloads: the product report, everything in one zip, CAD, boards and data.', before: () => goTab('make') },
+    { target: '.topbar-actions', title: 'Your own project', body: 'New project goes to the start: describe an idea, add photos of a product, or upload a Gerber set or KiCad board. Replay this tour any time from Tour.', before: () => goTab('view') },
+  ];
 
   const closeProject = () => { setTd(null); setLive(null); setProject(null); setError(''); setSaveNote(''); refreshSaved(); };
 
@@ -534,22 +618,34 @@ export default function App() {
   const canAnalyse = Boolean(status?.hasKey) && !status?.locked;
   const onThisComputer = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(window.location.hostname);
 
+  if (screen === 'home') {
+    return (
+      <Home
+        savedCount={saved.length}
+        onStart={(m) => { if (m) setMode(m); enterApp(); }}
+        onTour={startTour}
+        onSample={() => { open(SAMPLE); enterApp('#sample'); }}
+      />
+    );
+  }
+
   return (
     <div className="app">
+      {touring && td && <Tour steps={tourSteps} onClose={() => setTouring(false)} />}
       <header className="topbar">
-        <div className="brand">
+        <button type="button" className="brand" onClick={goHome} title="Home">
           <Mark />
-          <span>Teardown Lab</span>
-        </div>
+          <span className="brand-name">Teardown Lab</span>
+        </button>
         {(td || project) && (
           <p className="topbar-product" title={td?.product.name ?? project?.brief?.title}>{td?.product.name ?? project?.brief?.title ?? 'New project'}</p>
         )}
         {(td || project) && (
           <ol className="stages" aria-label="Stage">
             {([
-              [project?.board ? 'Board' : 'Brainstorm', !td, Boolean(project?.brief || project?.board), () => setTab('plan')],
-              ['Design', Boolean(td) && tab !== 'make' && tab !== 'plan', Boolean(td), () => setTab('view')],
-              ['Make', Boolean(td) && tab === 'make', Boolean(td), () => setTab('make')],
+              [project?.board ? 'Board' : 'Brainstorm', !td, Boolean(project?.brief || project?.board), () => goTab('plan')],
+              ['Design', Boolean(td) && tab !== 'make' && tab !== 'plan', Boolean(td), () => goTab('view')],
+              ['Make', Boolean(td) && tab === 'make', Boolean(td), () => goTab('make')],
             ] as const).map(([label, current, enabled, go], i) => (
               <li key={label}>
                 <button type="button" aria-current={current || (i === 0 && tab === 'plan') ? 'step' : undefined} disabled={!enabled || !td} onClick={go}>
@@ -560,7 +656,7 @@ export default function App() {
           </ol>
         )}
         <div className="topbar-actions">
-          {saveNote && (td || project) && <span className="save-note" role="status">{saveNote}</span>}
+          {(td || project) && <span className="save-note" role="status">{saveNote || (project ? 'Not saved yet' : 'Sample, not saved')}</span>}
           {working && <span className="save-note" role="status">{working}…</span>}
           {td && (
             <div className="menu" ref={exportRef}>
@@ -608,6 +704,12 @@ export default function App() {
               )}
             </div>
           )}
+          {td && (
+            <button type="button" className="btn" onClick={() => setTouring(true)} aria-label="Tour">
+              <Compass size={15} />
+              Tour
+            </button>
+          )}
           {(td || project) && (
             <button type="button" className="btn" onClick={closeProject} disabled={busy && !td}>
               <Plus size={15} />
@@ -621,6 +723,7 @@ export default function App() {
         <main className="start">
           <section className="start-form">
             <h1>What do you want to build?</h1>
+            <p className="start-tour">New here? <button type="button" className="link" onClick={startTour}>Take the tour</button> on the sample first.</p>
             <p className="start-lede">
               Say it in a sentence. The agent asks what it needs to know, plans it, designs the parts, the board and the
               housing, checks the result, and hands you the files to make it.
@@ -642,7 +745,7 @@ export default function App() {
                 }}
               >
                 <label className="field-label" htmlFor="board-files">Your board files</label>
-                <input id="board-files" name="files" type="file" multiple required accept=".zip,.gbr,.ger,.gtl,.gbl,.gts,.gbs,.gto,.gbo,.gtp,.gbp,.gko,.gm1,.drl,.xln,.txt,.csv,.pos,.kicad_pcb" />
+                <input id="board-files" name="files" type="file" multiple required accept=".zip,.gbr,.ger,.pho,.art,.gtl,.gbl,.gts,.gbs,.gto,.gbo,.gtp,.gbp,.gko,.gm1,.gml,.cmp,.sol,.stc,.sts,.plc,.pls,.drd,.dri,.drl,.xln,.exc,.txt,.csv,.pos,.kicad_pcb" />
                 <p className="hint">
                   A Gerber set (the files, or the .zip you would send to a board house) or a KiCad board file
                   (<code>.kicad_pcb</code>). A placement file in the same upload names the parts.
@@ -764,31 +867,48 @@ export default function App() {
           </section>
         </main>
       ) : (
-        <main className={`bench${td ? '' : ' is-planning'}`}>
-          <div className="bench-left">
-            <div className="left-switch" role="tablist" aria-label="Left panel">
-              <button type="button" role="tab" aria-selected={leftView === 'agent'} onClick={() => setLeftView('agent')}>Agent</button>
-              <button type="button" role="tab" aria-selected={leftView === 'parts'} onClick={() => setLeftView('parts')} disabled={!td}>
-                Parts{td ? ` · ${td.parts.length}` : ''}
+        <main className={`bench${td ? '' : ' is-planning'}${td && partsOpen ? ' has-parts' : ''}`}>
+          {td && (
+            <nav className="rail" aria-label="Views">
+              <button type="button" className="rail-btn" aria-pressed={partsOpen} onClick={() => setPartsOpen((v) => !v)} title="Show or hide the parts list">
+                <ListTree size={18} aria-hidden="true" />
+                <span>Parts</span>
               </button>
-            </div>
-            {leftView === 'parts' && td ? (
+              <div className="rail-rule" aria-hidden="true" />
+              <div className="rail-tabs" role="tablist" aria-orientation="vertical" aria-label="Views">
+                {(project?.brief
+                  ? [{ id: 'plan' as Tab, label: 'Plan', short: 'Plan', icon: ClipboardList, group: 0 }, ...TABS]
+                  : project?.board ? [{ id: 'plan' as Tab, label: 'Your board', short: 'Your file', icon: FileUp, group: 0 }, ...TABS] : TABS
+                ).map((t, i, list) => {
+                  const Icon = t.icon;
+                  return [
+                    i > 0 && list[i - 1].group !== t.group && <div key={`rule-${t.id}`} className="rail-rule" aria-hidden="true" />,
+                    <button
+                      key={t.id}
+                      type="button"
+                      role="tab"
+                      className="rail-btn"
+                      id={`tab-${t.id}`}
+                      aria-label={t.label}
+                      title={t.label}
+                      aria-selected={tab === t.id}
+                      aria-controls={`panel-${t.id}`}
+                      aria-busy={switching && pendingTab === t.id ? true : undefined}
+                      onClick={() => goTab(t.id)}
+                    >
+                      <Icon size={18} aria-hidden="true" />
+                      <span aria-hidden="true">{t.short}</span>
+                    </button>,
+                  ];
+                })}
+              </div>
+            </nav>
+          )}
+          {td && partsOpen && (
+            <aside className="tray-parts" aria-label="Parts">
               <PartList td={td} selectedId={selectedId} onSelect={setSelectedId} />
-            ) : (
-              <Agent
-                project={project}
-                td={td}
-                checks={checks}
-                busy={busy}
-                canAnalyse={canAnalyse}
-                onAnswer={(id, option) => setProject((p) => (p ? { ...p, answers: { ...p.answers, [id]: option } } : p))}
-                onBuild={() => { if (project) void design(project); }}
-                onRefine={(t, imgs) => void refine(t, imgs)}
-                onOpen={setTab}
-                onRetry={() => { if (project) void (project.brief || project.board || project.mode === 'teardown' ? design(project) : start(project.prompt, project.images, 'design')); }}
-              />
-            )}
-          </div>
+            </aside>
+          )}
 
           {!td ? (
             <div className={`bench-main bench-plan${live ? ' is-live' : ''}`}>
@@ -831,23 +951,8 @@ export default function App() {
             </div>
           ) : (
           <div className="bench-main">
-            <div className="tabs" role="tablist" aria-label="Views">
-              {(project?.brief ? [{ id: 'plan' as Tab, label: 'Plan' }, ...TABS] : project?.board ? [{ id: 'plan' as Tab, label: 'Your board' }, ...TABS] : TABS).map((t) => (
-                <button
-                  key={t.id}
-                  type="button"
-                  role="tab"
-                  id={`tab-${t.id}`}
-                  aria-selected={tab === t.id}
-                  aria-controls={`panel-${t.id}`}
-                  onClick={() => setTab(t.id)}
-                >
-                  {t.label}
-                </button>
-              ))}
-            </div>
-
-            <div className="panel" role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>
+            <div className="panel view-enter" key={tab} role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>
+              <Suspense fallback={<ViewSkeleton />}>
               {tab === 'view' && (
                 <div className="stage">
                   <Viewer3D
@@ -923,13 +1028,14 @@ export default function App() {
                   canUndo={history.length > 0}
                   onReset={() => { if (original) edit(original); }}
                   canReset={Boolean(original) && td !== original}
+                  toolSlot={toolSlot}
                 />
               )}
-              {tab === 'run' && <Simulator td={td} selectedId={selectedId} onSelect={setSelectedId} />}
+              {tab === 'run' && <Simulator td={td} selectedId={selectedId} onSelect={setSelectedId} toolSlot={toolSlot} />}
               {tab === 'plan' && project?.brief && <Plan brief={project.brief} td={td} designing={false} />}
               {tab === 'plan' && project?.board && <BoardPreview board={project.board} designing={false} />}
-              {tab === 'make' && <Make td={td} checks={checks} onOpen={setTab} onExport={exportAs} working={working} />}
-              {tab === 'guide' && <Guide td={td} onOpen={setTab} />}
+              {tab === 'make' && <Make td={td} checks={checks} onOpen={goTab} onExport={exportAs} working={working} />}
+              {tab === 'guide' && <Guide td={td} onOpen={goTab} />}
               {tab === 'arch' && <Architecture td={td} selectedId={selectedId} onSelect={setSelectedId} />}
               {tab === 'board' && <BareBoard td={td} selectedId={selectedId} onSelect={setSelectedId} />}
               {tab === 'fit' && <FitMould td={td} selectedId={selectedId} onSelect={setSelectedId} />}
@@ -937,12 +1043,42 @@ export default function App() {
               {tab === 'power' && <PowerTree td={td} selectedId={selectedId} onSelect={setSelectedId} />}
               {tab === 'bom' && <BomTable td={td} selectedId={selectedId} onSelect={setSelectedId} />}
               {tab === 'firmware' && <Firmware td={td} rea={status?.rea ?? null} canGenerate={canAnalyse} onFirmware={(fw) => edit({ ...td, firmware: fw })} />}
+              </Suspense>
             </div>
           </div>
 
           )}
 
-          {td && <Inspector td={td} selectedId={selectedId} onSelect={setSelectedId} />}
+          <aside className="side" aria-label={side === 'details' && td ? 'Details' : 'Agent'}>
+            {td && (
+              <div className="side-tabs" role="tablist" aria-label="Right panel">
+                {toolTab && (
+                  <button type="button" role="tab" aria-selected={side === 'tool'} onClick={() => setSide('tool')}>
+                    {tab === 'design' ? <Move3d size={14} aria-hidden="true" /> : <Gamepad2 size={14} aria-hidden="true" />}{toolTab}
+                  </button>
+                )}
+                <button type="button" role="tab" aria-selected={side === 'agent'} onClick={() => setSide('agent')}><MessageSquare size={14} aria-hidden="true" />Agent</button>
+                <button type="button" role="tab" aria-selected={side === 'details'} onClick={() => setSide('details')}><Info size={14} aria-hidden="true" />Details</button>
+              </div>
+            )}
+            {td && <div ref={setToolSlot} className="side-tool" hidden={!toolTab || side !== 'tool'} />}
+            {side === 'tool' && toolTab ? null : side === 'details' && td ? (
+              <Inspector key="details" td={td} selectedId={selectedId} onSelect={setSelectedId} />
+            ) : (
+              <Agent
+                project={project}
+                td={td}
+                checks={checks}
+                busy={busy}
+                canAnalyse={canAnalyse}
+                onAnswer={(id, option) => setProject((p) => (p ? { ...p, answers: { ...p.answers, [id]: option } } : p))}
+                onBuild={() => { if (project) void design(project); }}
+                onRefine={(t, imgs) => void refine(t, imgs)}
+                onOpen={goTab}
+                onRetry={() => { if (project) void (project.brief || project.board || project.mode === 'teardown' ? design(project) : start(project.prompt, project.images, 'design')); }}
+              />
+            )}
+          </aside>
         </main>
       )}
     </div>

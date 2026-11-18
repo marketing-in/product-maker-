@@ -9,7 +9,7 @@ const NO_WIRES: Record<ConnectionKind, boolean> = { power: false, ground: false,
 // Colours for the fit view. Each says one thing; the legend repeats it in words.
 const FIT_COLOR = {
   inside: '#3f8f62',
-  tight: '#d9a400',
+  tight: '#e07a52',
   cutout: '#2f7de1',
   wall: '#c4421c',
   clash: '#9b4dca',

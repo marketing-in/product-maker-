@@ -31,7 +31,7 @@ const STATUS: Record<CheckStatus, { label: string; fill: RGB; ink: RGB }> = {
 };
 const FIT: Record<string, { color: string; label: string }> = {
   inside: { color: '#3f8f62', label: 'Fits' },
-  tight: { color: '#d9a400', label: 'Tight, under 0.5 mm' },
+  tight: { color: '#e07a52', label: 'Tight, under 0.5 mm' },
   cutout: { color: '#2f7de1', label: 'Reaches the wall: needs a cut-out' },
   wall: { color: '#c4421c', label: 'Crosses the wall or sits outside' },
   clash: { color: '#9b4dca', label: 'Overlaps another part' },
@@ -534,7 +534,7 @@ export async function buildReport(td: Teardown): Promise<Uint8Array> {
   contents.forEach((c, i) => { r.doc.text(pdfText(`${i + 1}.  ${c}`), r.M, r.y + 3.5); r.y += 4.6; });
   r.y += 2;
   r.font(7.5, 'normal', INK3);
-  r.doc.text(r.doc.splitTextToSize(pdfText(`Made by Teardown Lab from ${td.meta.source === 'sample' ? 'the built-in sample' : `a design by ${td.meta.model ?? 'Claude'}`}. Sizes, part numbers and electrical values are engineering estimates until measured; each part is marked observed, inferred or assumed.`), r.inner), r.M, r.y + 2);
+  r.doc.text(r.doc.splitTextToSize(pdfText(`Made by Teardown Lab from ${td.meta.source === 'sample' ? 'the built-in sample' : td.meta.source === 'board' ? 'the uploaded board file' : `a design by ${td.meta.model ?? 'Claude'}`}. Sizes, part numbers and electrical values are engineering estimates until measured; each part is marked observed, inferred or assumed.`), r.inner), r.M, r.y + 2);
 
   // ---- 2 exploded and what is inside
   r.page('Inside the product');

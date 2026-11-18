@@ -123,7 +123,7 @@ export function boards(td: Teardown): BoardModel[] {
           side: c[n] >= board.position[n] ? 'top' : 'bottom',
           ...toBoard(c),
           w, h, round,
-          pads: p.category === 'antenna' ? [] : padsFor(p.category, w, h, round),
+          pads: p.pads ?? (p.category === 'antenna' ? [] : padsFor(p.category, w, h, round)),
         });
       });
     }
@@ -141,6 +141,8 @@ export function boards(td: Teardown): BoardModel[] {
         }
       }
     }
+
+    for (const d of board.drills ?? []) holes.push({ x: d.x, y: d.y, d: d.d, partId: board.id });
 
     const onBoard = new Set([board.id, ...footprints.map((f) => f.partId)]);
     const nets: Net[] = td.connections

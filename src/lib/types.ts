@@ -73,6 +73,10 @@ export interface Part {
   color: string;
   /** The form of the part as several solids. When present it replaces the plain shape; size stays the bounding box. */
   shapes?: PartShape[];
+  /** Real copper pads from an uploaded board, on the board plane, relative to the part centre. */
+  pads?: { x: number; y: number; w: number; h: number }[];
+  /** A board read from a file: its drill hits, in board coordinates (mm from the lower-left corner). */
+  drills?: { x: number; y: number; d: number }[];
 }
 
 export type ConnectionKind = 'power' | 'ground' | 'signal' | 'rf' | 'mechanical';
@@ -140,7 +144,7 @@ export interface Teardown {
   /** Firmware written for this design, when the user has asked for it. */
   firmware?: FirmwareBundle;
   meta: {
-    source: 'claude' | 'sample';
+    source: 'claude' | 'sample' | 'board';
     model?: string;
     createdAt: string;
   };

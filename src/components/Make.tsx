@@ -2,6 +2,7 @@ import { Download } from 'lucide-react';
 import { useMemo } from 'react';
 
 import { tally, type Brief, type Check, type CheckStatus, type ImportedBoard } from '../lib/validate';
+import { guessLabel } from '../lib/boardParts';
 import { CATEGORY_LABEL, CATEGORY_ORDER, type Teardown } from '../lib/types';
 import type { TabId } from './Guide';
 
@@ -130,7 +131,7 @@ export function BoardPreview({ board, designing }: { board: ImportedBoard; desig
           <p className="hint">
             {board.kind === 'kicad'
               ? 'Read from the KiCad board file: the outline, every footprint with its reference and value, and the nets.'
-              : 'Read from the Gerber files: the outline, the pads and the drill hits. Parts are found by grouping pads.'}
+              : 'Read from the Gerber files: the outline, the pads and the drill hits. Parts are found by grouping pads and recognised from their pattern.'}
           </p>
         </div>
       </header>
@@ -149,14 +150,14 @@ export function BoardPreview({ board, designing }: { board: ImportedBoard; desig
         <table className="loads-table wide">
           <thead>
             <tr>
-              <th scope="col">Ref</th><th scope="col">Value</th><th scope="col">Footprint</th><th scope="col">Side</th>
+              <th scope="col">Ref</th><th scope="col">Value</th><th scope="col">{board.kind === 'kicad' ? 'Footprint' : 'Looks like'}</th><th scope="col">Side</th>
               <th scope="col" className="r">X</th><th scope="col" className="r">Y</th><th scope="col" className="r">Size</th><th scope="col" className="r">Pads</th>
             </tr>
           </thead>
           <tbody>
             {parts.slice(0, 60).map((c, i) => (
               <tr key={i}>
-                <td className="ref">{c.ref}</td><td>{c.value || '–'}</td><td>{c.footprint || '–'}</td><td>{c.side}</td>
+                <td className="ref">{c.ref}</td><td>{c.value || '–'}</td><td>{c.footprint || guessLabel(c, board)}</td><td>{c.side}</td>
                 <td className="r num">{c.x.toFixed(1)}</td><td className="r num">{c.y.toFixed(1)}</td>
                 <td className="r num">{c.w.toFixed(1)} × {c.h.toFixed(1)}</td><td className="r num">{c.pads}</td>
               </tr>

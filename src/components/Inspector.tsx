@@ -46,7 +46,7 @@ export default function Inspector({ td, selectedId, onSelect }: Props) {
             </Row>
             <Row label="Power in">{td.product.powerInput}</Row>
             <Row label="Source">
-              {td.meta.source === 'sample' ? 'Built-in sample, illustrative only' : `Claude (${td.meta.model ?? 'model unknown'})`}
+              {td.meta.source === 'sample' ? 'Built-in sample, illustrative only' : td.meta.source === 'board' ? 'Generated from your board file, no AI' : `Claude (${td.meta.model ?? 'model unknown'})`}
             </Row>
           </dl>
 

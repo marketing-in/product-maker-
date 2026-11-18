@@ -106,19 +106,24 @@ function parseKicad(text, fileName) {
     const turn = (x, y) => [fx + x * Math.cos(a) - y * Math.sin(a), fy + x * Math.sin(a) + y * Math.cos(a)];
     const box = [Infinity, Infinity, -Infinity, -Infinity];
     let pads = 0;
+    const padList = [];
+    const drilled = [];
     for (const pad of kids(fp, 'pad')) {
       const [px = 0, py = 0] = nums(kid(pad, 'at'));
       const [w = 0.5, h = w] = nums(kid(pad, 'size'));
       const [cx, cy] = turn(px, py);
       const drill = nums(kid(pad, 'drill'))[0];
       if (pad[2] === 'np_thru_hole' || (pad[1] === '' && drill >= 2)) { holes.push({ x: cx, y: cy, d: drill ?? w }); continue; }
+      const turned = Math.abs(Math.round(((nums(kid(pad, 'at'))[2] ?? rot) / 90))) % 2 === 1;
+      padList.push({ x: cx, y: -cy, w: turned ? h : w, h: turned ? w : h, round: pad[3] === 'circle' || pad[3] === 'oval' && w === h });
+      if (drill) drilled.push({ x: cx, y: -cy });
       const half = Math.max(w, h) / 2;
       box[0] = Math.min(box[0], cx - half); box[1] = Math.min(box[1], cy - half);
       box[2] = Math.max(box[2], cx + half); box[3] = Math.max(box[3], cy + half);
       pads++;
     }
     if (!pads) continue;
-    raw.push({ ref, value, footprint: String(fp[1] ?? '').split(':').pop(), side, pads, box });
+    raw.push({ ref, value, footprint: String(fp[1] ?? '').split(':').pop(), side, pads, box, padList, drilled });
     for (const b of [[box[0], box[1]], [box[2], box[3]]]) if (!edge.length) edge.push(b);
   }
   if (!edge.length) throw new Error('No board outline was found on the Edge.Cuts layer.');
@@ -130,11 +135,16 @@ function parseKicad(text, fileName) {
   // KiCad's Y axis points down; flip it so the result is Y up from the lower-left corner.
   const X = (x) => r2(x - minX);
   const Y = (y) => r2(maxY - y);
-  const components = raw.map((c) => ({
-    ref: c.ref, value: c.value, footprint: c.footprint, side: c.side, pads: c.pads,
-    x: X((c.box[0] + c.box[2]) / 2), y: Y((c.box[1] + c.box[3]) / 2),
-    w: r2(c.box[2] - c.box[0]), h: r2(c.box[3] - c.box[1]),
-  }));
+  const components = raw.map((c) => {
+    // Pads were stored with Y already flipped, so the centre is flipped the same way.
+    const f = padFeatures(c.padList, (c.box[0] + c.box[2]) / 2, -(c.box[1] + c.box[3]) / 2, c.drilled.map((d) => ({ ...d })));
+    return {
+      ref: c.ref, value: c.value, footprint: c.footprint, side: c.side, pads: c.pads,
+      x: X((c.box[0] + c.box[2]) / 2), y: Y((c.box[1] + c.box[3]) / 2),
+      w: r2(c.box[2] - c.box[0]), h: r2(c.box[3] - c.box[1]),
+      padList: f.pads, layout: f.layout, pitch: f.pitch, ep: f.ep, th: f.th, anchors: f.anchors,
+    };
+  });
   const thickness = nums(kid(kid(tree, 'general') ?? [], 'thickness'))[0] ?? 1.6;
   const nets = kids(tree, 'net').length;
   if (kids(tree, 'segment').length === 0) notes.push('The board has no routed tracks yet.');
@@ -178,16 +188,71 @@ function padsOf(objects) {
   const pads = [];
   for (const o of objects) {
     if (o.type === 'shape') {
-      const s = (o.shape ?? [])[0] ?? {};
-      const w = (s.width ?? (s.r ?? 0) * 2) * k;
-      const h = (s.height ?? (s.r ?? 0) * 2) * k;
-      tools.set(o.tool, { w: w || 0.5, h: h || w || 0.5 });
+      // A pad shape is one or more primitives: circles, rectangles, polygons (octagons), rings.
+      // Its size is the box round all of them.
+      const box = [Infinity, Infinity, -Infinity, -Infinity];
+      const grow = (x, y) => { box[0] = Math.min(box[0], x); box[1] = Math.min(box[1], y); box[2] = Math.max(box[2], x); box[3] = Math.max(box[3], y); };
+      for (const s of o.shape ?? []) {
+        const cx = s.cx ?? 0;
+        const cy = s.cy ?? 0;
+        if (s.type === 'circle' || s.type === 'ring') { const r = (s.r ?? 0) + (s.width ?? 0) / 2 * (s.type === 'ring' ? 1 : 0); grow(cx - r, cy - r); grow(cx + r, cy + r); }
+        else if (s.type === 'rect') { grow(cx - (s.width ?? 0) / 2, cy - (s.height ?? 0) / 2); grow(cx + (s.width ?? 0) / 2, cy + (s.height ?? 0) / 2); }
+        else if (Array.isArray(s.points)) for (const [x, y] of s.points) grow(x, y);
+      }
+      const ok = box.every(Number.isFinite);
+      const w = ok ? (box[2] - box[0]) * k : 0;
+      const h = ok ? (box[3] - box[1]) * k : 0;
+      const first = (o.shape ?? [])[0] ?? {};
+      const round = (o.shape ?? []).length === 1 && (first.type === 'circle' || (first.type === 'poly' && (first.points ?? []).length >= 8 && Math.abs(w - h) < 0.05) || (first.r ?? 0) * 2 * k >= Math.min(w, h) * 0.95);
+      tools.set(o.tool, { w: w || 0.5, h: h || w || 0.5, round });
     } else if (o.type === 'pad') {
-      const t = tools.get(o.tool) ?? { w: 0.5, h: 0.5 };
-      pads.push({ x: o.x * k, y: o.y * k, w: t.w, h: t.h });
+      const t = tools.get(o.tool) ?? { w: 0.5, h: 0.5, round: false };
+      pads.push({ x: o.x * k, y: o.y * k, w: t.w, h: t.h, round: t.round });
     }
   }
-  return { pads, box: size?.box?.map((v) => v * k) ?? null };
+  const strokes = objects.filter((o) => o.type === 'stroke').reduce((n, o) => n + (o.path?.length ?? 1), 0);
+  return { pads, box: size?.box?.map((v) => v * k) ?? null, strokes };
+}
+
+/**
+ * The pad pattern of one footprint, measured so the app can tell what the part is: how the pads
+ * are laid out (a pair, a row, two rows, four sides, a grid), the pitch between neighbours, a large
+ * centre pad, and how many pads have a drill hit (through-hole pins). Pads come back relative to the
+ * footprint centre, so the board view can draw the real copper.
+ */
+export function padFeatures(pads, cx, cy, holes = []) {
+  const n = pads.length;
+  const rel = pads.map((p) => ({ x: r2(p.x - cx), y: r2(p.y - cy), w: r2(p.w), h: r2(p.h), ...(p.round ? { round: true } : {}) }));
+  const areas = rel.map((p) => p.w * p.h).sort((a, b) => a - b);
+  const median = areas[Math.floor(n / 2)] ?? 0;
+  const half = Math.max(0, ...rel.map((q) => Math.max(Math.abs(q.x), Math.abs(q.y))));
+  // A big pad in the middle is the exposed thermal pad of a QFN or a power package.
+  const ep = n >= 5 && rel.some((p) => p.w * p.h > median * 4 && Math.abs(p.x) < half * 0.3 && Math.abs(p.y) < half * 0.3);
+  // Anchors are the large pads that hold a connector or shield down; the signal pins are the rest.
+  const signal = rel.filter((p) => !(n >= 4 && p.w * p.h > median * 3));
+  const near = signal.map((p, i) => Math.min(...signal.filter((_, j) => j !== i).map((q) => Math.hypot(q.x - p.x, q.y - p.y))));
+  const pitch = signal.length > 1 ? r2([...near].sort((a, b) => a - b)[Math.floor(near.length / 2)]) : 0;
+  const distinct = (vals) => { const out = []; for (const v of [...vals].sort((a, b) => a - b)) if (!out.length || v - out[out.length - 1] > 0.2) out.push(v); return out; };
+  const xs = distinct(signal.map((p) => p.x));
+  const ys = distinct(signal.map((p) => p.y));
+  const [x0, x1, y0, y1] = [Math.min(...signal.map((p) => p.x)), Math.max(...signal.map((p) => p.x)), Math.min(...signal.map((p) => p.y)), Math.max(...signal.map((p) => p.y))];
+  const on = (v, edge) => Math.abs(v - edge) < 0.25;
+  const sides = {
+    left: signal.filter((p) => on(p.x, x0)).length, right: signal.filter((p) => on(p.x, x1)).length,
+    bottom: signal.filter((p) => on(p.y, y0)).length, top: signal.filter((p) => on(p.y, y1)).length,
+  };
+  const perimeter = signal.filter((p) => on(p.x, x0) || on(p.x, x1) || on(p.y, y0) || on(p.y, y1)).length;
+  let layout = 'mixed';
+  if (n === 1) layout = 'single';
+  else if (signal.length === 2) layout = 'pair';
+  else if (xs.length === 1 || ys.length === 1) layout = 'row';
+  else if (xs.length >= 3 && ys.length >= 3 && signal.length >= xs.length * ys.length * 0.6 && perimeter < signal.length * 0.8) layout = 'grid';
+  else if (xs.length === 2 && sides.left + sides.right === signal.length && sides.left >= 2) layout = 'dual-v';
+  else if (ys.length === 2 && sides.top + sides.bottom === signal.length && sides.top >= 2) layout = 'dual-h';
+  else if (sides.left >= 2 && sides.right >= 2 && sides.top >= 2 && sides.bottom >= 2 && perimeter >= signal.length * 0.9) layout = 'quad';
+  // Through-hole: a drill hit inside the pad.
+  const th = pads.filter((p) => holes.some((h) => Math.abs(h.x - p.x) < p.w / 2 && Math.abs(h.y - p.y) < p.h / 2)).length;
+  return { pads: rel.slice(0, 160), layout, pitch, ep, th, anchors: n - signal.length };
 }
 
 /** Groups pads that sit close together: each group is taken as one component footprint. */
@@ -195,7 +260,7 @@ function cluster(pads, gap) {
   const parent = pads.map((_, i) => i);
   const find = (i) => (parent[i] === i ? i : (parent[i] = find(parent[i])));
   // A grid keeps this near-linear for boards with thousands of pads.
-  const cell = Math.max(gap * 2, 2);
+  const cell = Math.max(gap * 2, 2.7);
   const grid = new Map();
   pads.forEach((p, i) => {
     const key = `${Math.floor(p.x / cell)},${Math.floor(p.y / cell)}`;
@@ -211,7 +276,9 @@ function cluster(pads, gap) {
           const q = pads[j];
           const sx = Math.abs(p.x - q.x) - (p.w + q.w) / 2;
           const sy = Math.abs(p.y - q.y) - (p.h + q.h) / 2;
-          if (Math.max(sx, sy) <= gap) parent[find(i)] = find(j);
+          // Through-hole pins on a 2.54 mm grid (headers, DIP rows) are one part even with a wider gap.
+          const pins = p.pin && q.pin && Math.hypot(p.x - q.x, p.y - q.y) <= 2.6;
+          if (Math.max(sx, sy) <= gap || pins) parent[find(i)] = find(j);
         }
       }
     }
@@ -250,14 +317,34 @@ async function parseGerbers(files, fileName) {
     if (box && box.every(Number.isFinite)) { ox = box[0] + penMm / 2; oy = box[1] + penMm / 2; width = box[2] - box[0] - penMm; height = box[3] - box[1] - penMm; }
   } else notes.push('No outline layer was found, so the board size is taken from the extent of the copper.');
 
+  // Drill hits first: a pad with a hole in it is a through-hole pin.
+  const drills = [];
+  for (const f of known.filter((x) => types[x.name].type === 'drill')) {
+    try { drills.push(...padsOf(await plot(f.text, { filetype: 'drill' })).pads); } catch { notes.push(`The drill file ${f.name} could not be read.`); }
+  }
+
+  const pins = drills.filter((d) => d.w >= 0.65 && d.w < 2);
+  const painted = [];
   const components = [];
   for (const side of ['top', 'bottom']) {
     const cu = known.find((f) => types[f.name].type === 'copper' && types[f.name].side === side);
     if (!cu) continue;
-    const { pads } = padsOf(await plot(cu.text));
-    const real = pads.filter((p) => p.w < 12 && p.h < 12);
+    const { pads, strokes } = padsOf(await plot(cu.text));
+    // Old exports paint pads with lines instead of flashing them; those parts cannot be found from this layer.
+    if (strokes > 40 * Math.max(1, pads.length) && pads.length < 300) painted.push(side);
+    const inPad = (d, p) => Math.abs(d.x - p.x) < Math.max(p.w, 0.3) / 2 && Math.abs(d.y - p.y) < Math.max(p.h, 0.3) / 2;
+    // Vias (small drills) are not parts. A component pin has a real drill in it.
+    let real = pads.filter((p) => p.w < 12 && p.h < 12 && !(Math.max(p.w, p.h) <= 1.6 && drills.some((d) => d.w < 0.65 && inPad(d, p))));
+    for (const p of real) p.pin = drills.some((d) => d.w >= 0.65 && d.w < 2 && inPad(d, p));
+    if (side === 'top') {
+      // Some exports draw pin pads as filled areas, not flashes: the drill file still has every pin.
+      for (const d of pins) if (!real.some((p) => inPad(d, p))) real.push({ x: d.x, y: d.y, w: d.w + 0.7, h: d.w + 0.7, round: true, pin: true });
+    } else {
+      // Through-hole parts sit on the top; their pins show on the bottom copper too.
+      real = real.filter((p) => !p.pin);
+    }
     const boxes = cluster(real, 0.9).map((group) => ({
-      n: group.length,
+      n: group.length, pads: group, drilled: group.every((p) => p.pin),
       x0: Math.min(...group.map((p) => p.x - p.w / 2)), x1: Math.max(...group.map((p) => p.x + p.w / 2)),
       y0: Math.min(...group.map((p) => p.y - p.h / 2)), y1: Math.max(...group.map((p) => p.y + p.h / 2)),
     }));
@@ -268,6 +355,8 @@ async function parseGerbers(files, fileName) {
         const a = boxes[i];
         const b = boxes[j];
         if (!a || !b || a.n !== b.n || a.n === 2) continue;
+        // Single drilled holes are not two halves of a chip resistor.
+        if (a.n === 1 && (a.drilled || b.drilled)) continue;
         const [aw, ah, bw, bh] = [a.x1 - a.x0, a.y1 - a.y0, b.x1 - b.x0, b.y1 - b.y0];
         const horiz = aw >= ah;
         const len = horiz ? aw : ah;
@@ -277,25 +366,44 @@ async function parseGerbers(files, fileName) {
         // Single pads pair up into a two-terminal part (a capacitor, a resistor) when they face each other closely.
         const reach = a.n === 1 ? Math.max(len * 1.5, 2.5) : Math.max(len * 1.6, 7);
         if (sameLen && lined && apart > 0 && apart <= reach) {
-          boxes[i] = { n: a.n + b.n, x0: Math.min(a.x0, b.x0), x1: Math.max(a.x1, b.x1), y0: Math.min(a.y0, b.y0), y1: Math.max(a.y1, b.y1) };
+          boxes[i] = { n: a.n + b.n, pads: [...a.pads, ...b.pads], drilled: a.drilled && b.drilled, x0: Math.min(a.x0, b.x0), x1: Math.max(a.x1, b.x1), y0: Math.min(a.y0, b.y0), y1: Math.max(a.y1, b.y1) };
           boxes[j] = null;
         }
       }
     }
-    for (const g of boxes.filter(Boolean)) {
-      components.push({ ref: '', value: '', footprint: '', side, pads: g.n, x: r2((g.x0 + g.x1) / 2 - ox), y: r2((g.y0 + g.y1) / 2 - oy), w: r2(g.x1 - g.x0), h: r2(g.y1 - g.y0) });
+    // A barrel jack or a big terminal: each pin is a large drilled pad, a few mm apart. One part.
+    const bigPin = (g) => g && g.drilled && g.pads.some((p) => Math.max(p.w, p.h) >= 3);
+    for (let i = 0; i < boxes.length; i++) {
+      for (let j = i + 1; j < boxes.length; j++) {
+        const a = boxes[i];
+        const b = boxes[j];
+        if (!bigPin(a) || !bigPin(b)) continue;
+        const gap = Math.max(Math.max(a.x0, b.x0) - Math.min(a.x1, b.x1), Math.max(a.y0, b.y0) - Math.min(a.y1, b.y1));
+        if (gap > 4) continue;
+        boxes[i] = { n: a.n + b.n, pads: [...a.pads, ...b.pads], drilled: true, x0: Math.min(a.x0, b.x0), x1: Math.max(a.x1, b.x1), y0: Math.min(a.y0, b.y0), y1: Math.max(a.y1, b.y1) };
+        boxes[j] = null;
+        j = i;
+      }
     }
+    for (const g of boxes.filter(Boolean)) {
+      const [cx, cy] = [(g.x0 + g.x1) / 2, (g.y0 + g.y1) / 2];
+      const f = padFeatures(g.pads, cx, cy, drills);
+      components.push({ ref: '', value: '', footprint: '', side, pads: g.n, x: r2(cx - ox), y: r2(cy - oy), w: r2(g.x1 - g.x0), h: r2(g.y1 - g.y0), padList: f.pads, layout: f.layout, pitch: f.pitch, ep: f.ep, th: f.th, anchors: f.anchors });
+    }
+  }
+  // Copper on both sides in the same place is one through-hole part (boards without a drill file
+  // show it this way). It is kept once, on the top.
+  const tops = components.filter((c) => c.side === 'top');
+  for (let i = components.length - 1; i >= 0; i--) {
+    const c = components[i];
+    if (c.side !== 'bottom') continue;
+    const twin = tops.find((t) => t.pads === c.pads && Math.abs(t.x - c.x) < 0.3 && Math.abs(t.y - c.y) < 0.3);
+    if (twin) { twin.th = Math.max(twin.th, twin.pads); components.splice(i, 1); }
   }
   components.sort((a, b) => b.w * b.h - a.w * a.h);
   components.forEach((c, i) => { c.ref = `P${i + 1}`; });
 
-  const holes = [];
-  for (const f of known.filter((x) => types[x.name].type === 'drill')) {
-    try {
-      const { pads } = padsOf(await plot(f.text, { filetype: 'drill' }));
-      for (const p of pads) holes.push({ x: r2(p.x - ox), y: r2(p.y - oy), d: r2(Math.max(p.w, p.h)) });
-    } catch { notes.push(`The drill file ${f.name} could not be read.`); }
-  }
+  const holes = drills.map((p) => ({ x: r2(p.x - ox), y: r2(p.y - oy), d: r2(Math.max(p.w, p.h)) }));
 
   // A placement file, when the upload has one, names the parts the copper cannot.
   const pos = files.find((f) => /(placement|pos|cpl|pick).*\.csv$|\.pos$/i.test(f.name));
@@ -320,6 +428,7 @@ async function parseGerbers(files, fileName) {
     ? `${named} parts were named from the placement file.`
     : 'Gerber files do not name the parts. Footprints were found by grouping pads, and are numbered P1, P2 and so on by size.');
 
+  if (painted.length) notes.push(`The ${painted.join(' and ')} copper draws most pads with lines instead of flashing them (an older export), so surface-mount parts there could not be found. Through-hole parts were found from the drill file. A fresh Gerber export or the .kicad_pcb file gives every part.`);
   const copper = known.filter((f) => types[f.name].type === 'copper').length;
   return {
     kind: 'gerber', name: fileName,
@@ -393,6 +502,6 @@ export function boardBrief(b) {
       ? `Mounting holes: ${b.mounting.map((h) => `(${h.x}, ${h.y}) diameter ${h.d}`).join('; ')}.`
       : 'Mounting holes: none found. Hold the board with ribs, a slot or clips.',
     `Components (${b.components.length} in total, largest ${big.length} listed) as: reference | value | footprint | side | centre x, y | size w x h | pads`,
-    ...big.map((c) => `${c.ref} | ${c.value || '?'} | ${c.footprint || '?'} | ${c.side} | ${c.x}, ${c.y} | ${c.w} x ${c.h} | ${c.pads}${edge(c)}`),
+    ...big.map((c) => `${c.ref} | ${c.value || '?'} | ${c.footprint || (c.guess ? `${c.guess} (guessed from the pads)` : '?')} | ${c.side} | ${c.x}, ${c.y} | ${c.w} x ${c.h} | ${c.pads}${edge(c)}`),
   ].join('\n');
 }

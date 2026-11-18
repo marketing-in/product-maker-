@@ -14,7 +14,7 @@ import type { Connection, ConnectionKind, Part, Teardown, Vec3 } from '../lib/ty
 
 export const KIND_COLOR: Record<ConnectionKind, string> = {
   power: '#c4421c',
-  ground: '#3a3f45',
+  ground: '#8b929b',
   signal: '#2a5fb0',
   rf: '#12827a',
   mechanical: '#8f8a7f',
@@ -40,86 +40,147 @@ function surface(part: Part): { metalness: number; roughness: number; clearcoat:
   }
 }
 
-/** The printed face of a board: solder mask, pads, part outlines and reference designators. */
-export function boardFace(b: BoardModel, side: 'top' | 'bottom'): THREE.Mesh | null {
+/** The layers of a board that can be shown, hidden and spread apart in the 3D view. */
+export type LayerKey = 'topParts' | 'topSilk' | 'topMask' | 'topCopper' | 'core' | 'bottomCopper' | 'bottomMask' | 'bottomSilk' | 'bottomParts';
+export const LAYERS: { key: LayerKey; label: string }[] = [
+  { key: 'topParts', label: 'Top parts' }, { key: 'topSilk', label: 'Top silkscreen' }, { key: 'topMask', label: 'Top solder mask' },
+  { key: 'topCopper', label: 'Top copper' }, { key: 'core', label: 'Core (FR-4)' }, { key: 'bottomCopper', label: 'Bottom copper' },
+  { key: 'bottomMask', label: 'Bottom solder mask' }, { key: 'bottomSilk', label: 'Bottom silkscreen' }, { key: 'bottomParts', label: 'Bottom parts' },
+];
+export interface LayerView { show: Record<LayerKey, boolean>; /** 0: assembled, 1: the layers pulled fully apart. */ spread: number }
+const FR4 = '#b9a46e';
+
+/** Gap between neighbouring layers when they are fully spread, in mm. */
+export const layerGap = (b: { width: number; height: number }) => Math.max(3, Math.max(b.width, b.height) * 0.06);
+
+/**
+ * The printed face of one side of a board, as separate layers stacked just above the core:
+ * copper (traces, pads, vias, plated holes), solder mask (with openings at the pads) and
+ * silkscreen (part outlines and reference designators). Each is its own mesh, tagged with its
+ * layer, so the 3D view can hide it or lift it away from the board.
+ */
+export function boardFace(b: BoardModel, side: 'top' | 'bottom'): THREE.Group | null {
   const pxPerMm = Math.max(6, Math.min(24, 2048 / Math.max(b.width, b.height)));
-  const canvas = document.createElement('canvas');
-  canvas.width = Math.round(b.width * pxPerMm);
-  canvas.height = Math.round(b.height * pxPerMm);
-  const g = canvas.getContext('2d');
-  if (!g) return null;
+  const make = () => {
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(b.width * pxPerMm);
+    canvas.height = Math.round(b.height * pxPerMm);
+    return { canvas, g: canvas.getContext('2d') };
+  };
+  const copper = make();
+  const mask = make();
+  const silk = make();
+  if (!copper.g || !mask.g || !silk.g) return null;
   const X = (x: number) => x * pxPerMm;
   const Y = (y: number) => (b.height - y) * pxPerMm;
-  const mask = new THREE.Color(b.part.color);
-  g.fillStyle = `#${mask.clone().multiplyScalar(0.72).getHexString()}`;
-  g.fillRect(0, 0, canvas.width, canvas.height);
-  // A faint copper pour pattern, so the mask does not look like flat paint.
-  g.strokeStyle = `#${mask.clone().multiplyScalar(0.86).getHexString()}`;
-  g.lineWidth = pxPerMm * 0.12;
-  for (let i = -canvas.height; i < canvas.width; i += pxPerMm * 1.6) { g.beginPath(); g.moveTo(i, canvas.height); g.lineTo(i + canvas.height, 0); g.stroke(); }
-  // Copper traces show through the solder mask as a lighter shade of it.
-  const routing = routeBoard(b);
-  g.strokeStyle = `#${mask.clone().multiplyScalar(1.28).getHexString()}`;
-  g.lineCap = 'round';
-  g.lineJoin = 'round';
-  for (const t of routing.traces) {
-    if (t.layer !== side) continue;
-    g.lineWidth = Math.max(1.5, t.width * pxPerMm);
-    g.beginPath();
-    t.points.forEach(([x, y], i) => (i ? g.lineTo(X(x), Y(y)) : g.moveTo(X(x), Y(y))));
-    g.stroke();
-  }
-  for (const v of routing.vias) {
-    g.fillStyle = '#cfd2d6';
-    g.beginPath(); g.arc(X(v.x), Y(v.y), (v.pad / 2) * pxPerMm, 0, Math.PI * 2); g.fill();
-    g.fillStyle = '#14171a';
-    g.beginPath(); g.arc(X(v.x), Y(v.y), (v.drill / 2) * pxPerMm, 0, Math.PI * 2); g.fill();
-  }
-  g.fillStyle = '#d8b25a';
-  for (const h of b.holes) { g.beginPath(); g.arc(X(h.x), Y(h.y), ((h.d + 1.6) / 2) * pxPerMm, 0, Math.PI * 2); g.fill(); }
+  const dot = (g: CanvasRenderingContext2D, x: number, y: number, r: number) => { g.beginPath(); g.arc(X(x), Y(y), r * pxPerMm, 0, Math.PI * 2); g.fill(); };
   const shown = b.footprints.filter((f) => f.side === side);
-  for (const f of shown) {
-    g.fillStyle = '#cfd2d6';
-    for (const p of f.pads) g.fillRect(X(f.x + p.x - p.w / 2), Y(f.y + p.y + p.h / 2), p.w * pxPerMm, p.h * pxPerMm);
-  }
-  g.strokeStyle = '#f2f1ec';
-  g.fillStyle = '#f2f1ec';
-  g.lineWidth = Math.max(1, pxPerMm * 0.12);
-  g.textBaseline = 'bottom';
-  for (const f of shown) {
-    const grow = 0.35;
-    if (f.round) { g.beginPath(); g.arc(X(f.x), Y(f.y), (f.w / 2 + grow) * pxPerMm, 0, Math.PI * 2); g.stroke(); }
-    else g.strokeRect(X(f.x - f.w / 2 - grow), Y(f.y + f.h / 2 + grow), (f.w + grow * 2) * pxPerMm, (f.h + grow * 2) * pxPerMm);
-    const size = Math.max(0.9, Math.min(1.6, Math.min(f.w, f.h) * 0.45)) * pxPerMm;
-    g.font = `600 ${size}px "IBM Plex Mono", ui-monospace, monospace`;
-    const label = f.ref.replace(/\s+/g, '');
-    const tw = g.measureText(label).width;
-    const lx = Math.max(2, Math.min(canvas.width - tw - 2, X(f.x - f.w / 2 - grow)));
-    const above = Y(f.y + f.h / 2 + grow) - pxPerMm * 0.15;
-    g.fillText(label, lx, above > size ? above : Y(f.y - f.h / 2 - grow) + size + pxPerMm * 0.15);
-  }
-  const tex = new THREE.CanvasTexture(canvas);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  tex.anisotropy = 8;
+  const routing = routeBoard(b);
+  const traces = routing.traces.filter((t) => t.layer === side);
+  const stroke = (g: CanvasRenderingContext2D) => {
+    g.lineCap = 'round';
+    g.lineJoin = 'round';
+    for (const t of traces) {
+      g.lineWidth = Math.max(1.5, t.width * pxPerMm);
+      g.beginPath();
+      t.points.forEach(([x, y], i) => (i ? g.lineTo(X(x), Y(y)) : g.moveTo(X(x), Y(y))));
+      g.stroke();
+    }
+  };
 
-  // A quad just above the board face, in the board's own axes.
+  // Copper: traces, then the pads and plated holes in their surface finish.
+  {
+    const g = copper.g;
+    g.strokeStyle = '#c47b3c';
+    stroke(g);
+    g.fillStyle = '#cfd2d6';
+    for (const v of routing.vias) dot(g, v.x, v.y, v.pad / 2);
+    for (const f of shown) for (const p of f.pads) g.fillRect(X(f.x + p.x - p.w / 2), Y(f.y + p.y + p.h / 2), p.w * pxPerMm, p.h * pxPerMm);
+    g.fillStyle = '#d8b25a';
+    for (const h of b.holes) dot(g, h.x, h.y, (h.d + 1.6) / 2);
+    g.fillStyle = '#14171a';
+    for (const v of routing.vias) dot(g, v.x, v.y, v.drill / 2);
+    for (const h of b.holes) dot(g, h.x, h.y, h.d / 2);
+  }
+
+  // Solder mask: coloured lacquer over everything but the pads; traces show through as a lighter shade.
+  {
+    const g = mask.g;
+    const tint = new THREE.Color(b.part.color);
+    g.fillStyle = `#${tint.clone().multiplyScalar(0.72).getHexString()}`;
+    g.fillRect(0, 0, mask.canvas.width, mask.canvas.height);
+    g.strokeStyle = `#${tint.clone().multiplyScalar(0.86).getHexString()}`;
+    g.lineWidth = pxPerMm * 0.12;
+    for (let i = -mask.canvas.height; i < mask.canvas.width; i += pxPerMm * 1.6) { g.beginPath(); g.moveTo(i, mask.canvas.height); g.lineTo(i + mask.canvas.height, 0); g.stroke(); }
+    g.strokeStyle = `#${tint.clone().multiplyScalar(1.28).getHexString()}`;
+    stroke(g);
+    g.globalCompositeOperation = 'destination-out';
+    const open = 0.05;
+    for (const f of shown) for (const p of f.pads) g.fillRect(X(f.x + p.x - p.w / 2 - open), Y(f.y + p.y + p.h / 2 + open), (p.w + open * 2) * pxPerMm, (p.h + open * 2) * pxPerMm);
+    for (const v of routing.vias) dot(g, v.x, v.y, v.drill / 2);
+    for (const h of b.holes) dot(g, h.x, h.y, (h.d + 1.6) / 2);
+    g.globalCompositeOperation = 'source-over';
+  }
+
+  // Silkscreen: outlines and references in white ink.
+  {
+    const g = silk.g;
+    g.strokeStyle = '#f2f1ec';
+    g.fillStyle = '#f2f1ec';
+    g.lineWidth = Math.max(1, pxPerMm * 0.12);
+    g.textBaseline = 'bottom';
+    for (const f of shown) {
+      const grow = 0.35;
+      if (f.round) { g.beginPath(); g.arc(X(f.x), Y(f.y), (f.w / 2 + grow) * pxPerMm, 0, Math.PI * 2); g.stroke(); }
+      else g.strokeRect(X(f.x - f.w / 2 - grow), Y(f.y + f.h / 2 + grow), (f.w + grow * 2) * pxPerMm, (f.h + grow * 2) * pxPerMm);
+      const size = Math.max(0.9, Math.min(1.6, Math.min(f.w, f.h) * 0.45)) * pxPerMm;
+      g.font = `600 ${size}px "Geist Mono", ui-monospace, monospace`;
+      const label = f.ref.replace(/\s+/g, '');
+      const tw = g.measureText(label).width;
+      const lx = Math.max(2, Math.min(silk.canvas.width - tw - 2, X(f.x - f.w / 2 - grow)));
+      const above = Y(f.y + f.h / 2 + grow) - pxPerMm * 0.15;
+      g.fillText(label, lx, above > size ? above : Y(f.y - f.h / 2 - grow) + size + pxPerMm * 0.15);
+    }
+  }
+
+  // Quads just above the board face, in the board's own axes, one per layer.
   const { n, u, v } = b.axes;
   const sign = side === 'top' ? 1 : -1;
-  const corner = (cu: number, cv: number) => { const p = [0, 0, 0]; p[u] = cu * b.width / 2; p[v] = cv * b.height / 2; p[n] = sign * (b.thickness / 2 + 0.05); return p; };
-  const quad = [corner(-1, -1), corner(1, -1), corner(1, 1), corner(-1, 1)];
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.Float32BufferAttribute(quad.flat(), 3));
-  geo.setAttribute('uv', new THREE.Float32BufferAttribute([0, 0, 1, 0, 1, 1, 0, 1], 2));
-  geo.setIndex([0, 1, 2, 0, 2, 3]);
-  geo.computeVertexNormals();
-  const mat = new THREE.MeshPhysicalMaterial({
-    map: tex, roughness: 0.72, clearcoat: 0.06, clearcoatRoughness: 0.5, envMapIntensity: 0.5, side: THREE.DoubleSide,
-    // Drawn in front of the board face it lies on, whatever the zoom.
-    polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4,
-  });
-  const mesh = new THREE.Mesh(geo, mat);
-  mesh.receiveShadow = true;
-  return mesh;
+  const quadGeo = (lift: number) => {
+    const corner = (cu: number, cv: number) => { const p = [0, 0, 0]; p[u] = cu * b.width / 2; p[v] = cv * b.height / 2; p[n] = sign * (b.thickness / 2 + lift); return p; };
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute([corner(-1, -1), corner(1, -1), corner(1, 1), corner(-1, 1)].flat(), 3));
+    geo.setAttribute('uv', new THREE.Float32BufferAttribute([0, 0, 1, 0, 1, 1, 0, 1], 2));
+    geo.setIndex([0, 1, 2, 0, 2, 3]);
+    geo.computeVertexNormals();
+    return geo;
+  };
+  const group = new THREE.Group();
+  const layer = (name: 'core' | 'copper' | 'mask' | 'silk', canvas: HTMLCanvasElement | null, step: number) => {
+    const map = canvas ? new THREE.CanvasTexture(canvas) : null;
+    if (map) { map.colorSpace = THREE.SRGBColorSpace; map.anisotropy = 8; }
+    const mat = new THREE.MeshPhysicalMaterial({
+      ...(map ? { map } : { color: FR4 }),
+      transparent: Boolean(map), depthWrite: !map, roughness: name === 'copper' ? 0.4 : 0.72, metalness: name === 'copper' ? 0.35 : 0,
+      clearcoat: name === 'mask' ? 0.2 : 0.06, clearcoatRoughness: 0.5, envMapIntensity: 0.5, side: THREE.DoubleSide,
+      // Drawn in front of the layer below it, whatever the zoom.
+      polygonOffset: true, polygonOffsetFactor: -2 - step * 2, polygonOffsetUnits: -2 - step * 2,
+    });
+    const mesh = new THREE.Mesh(quadGeo(0.02 + step * 0.015), mat);
+    mesh.renderOrder = step + 1;
+    mesh.receiveShadow = true;
+    const key = name === 'core' ? 'core' : `${side}${name === 'copper' ? 'Copper' : name === 'mask' ? 'Mask' : 'Silk'}` as LayerKey;
+    mesh.userData.layer = key;
+    mesh.userData.step = step;
+    mesh.userData.normal = n;
+    mesh.userData.sign = sign;
+    group.add(mesh);
+  };
+  layer('core', null, 0);
+  layer('copper', copper.canvas, 1);
+  layer('mask', mask.canvas, 2);
+  layer('silk', silk.canvas, 3);
+  return group;
 }
 
 interface Props {
@@ -146,6 +207,8 @@ interface Props {
   cursors?: AgentCursor[];
   /** Design editor: the selected part can be dragged. Called once on release, in millimetres. */
   onMovePart?: (id: string, delta: Vec3) => void;
+  /** Board view: which board layers show and how far apart they are pulled. */
+  layers?: LayerView;
 }
 
 export interface AgentCursor {
@@ -438,7 +501,10 @@ export default function Viewer3D(props: Props) {
           for (const side of ['top', 'bottom'] as const) {
             if (side === 'bottom' && !face.footprints.some((f) => f.side === 'bottom')) continue;
             const printed = boardFace(face, side);
-            if (printed) { printed.userData.partId = part.id; printed.userData.index = index; g.add(printed); }
+            if (printed) {
+              printed.traverse((c) => { c.userData.partId = part.id; c.userData.index = index; });
+              g.add(printed);
+            }
           }
         }
         for (const [list, mat] of [[extra.metal, metalMat], [extra.dark, darkMat], [extra.light, lightMat]] as const) {
@@ -1023,6 +1089,37 @@ export default function Viewer3D(props: Props) {
     s.userMoved = false;
     s.fit();
   }, [resetSignal]);
+
+  // Board layers: show or hide each one, and lift them apart along the board normal.
+  const layers = props.layers;
+  useEffect(() => {
+    const s = stageRef.current;
+    if (!s) return;
+    const pcb = [...s.parts.values()].find((o) => o.part.category === 'pcb');
+    if (!pcb) return;
+    const size = pcb.part.size;
+    const n = size.indexOf(Math.min(...size));
+    const [a, b] = size.filter((_, i) => i !== n);
+    const gap = layerGap({ width: a, height: b });
+    for (const o of s.parts.values()) {
+      if (o.part === pcb.part) {
+        for (const g of o.groups) {
+          for (const c of g.children) if ((c as THREE.Mesh).isMesh) c.visible = layers ? layers.show.core : true;
+          g.traverse((c) => {
+            const key = c.userData.layer as LayerKey | undefined;
+            if (!key) return;
+            c.visible = layers ? layers.show[key] : true;
+            c.position.setComponent(c.userData.normal as number, layers ? layers.spread * gap * (c.userData.step as number) * (c.userData.sign as number) : 0);
+          });
+        }
+        // With the layers in view the core shows as bare FR-4, not as solder mask.
+        o.material.color.set(layers ? FR4 : o.part.color);
+      } else if (o.part.parentId === pcb.part.id) {
+        const top = o.part.position[n] >= pcb.part.position[n];
+        for (const g of o.groups) g.visible = layers ? layers.show[top ? 'topParts' : 'bottomParts'] : true;
+      }
+    }
+  }, [td, layers]);
 
   return (
     <div className="viewer">

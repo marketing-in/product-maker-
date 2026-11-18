@@ -8,7 +8,7 @@ import { buildPcbProject } from '../lib/exportPcbProject';
 import { routeBoard } from '../lib/route';
 import { slug } from '../lib/geometry';
 import type { Teardown } from '../lib/types';
-import Viewer3D, { KIND_COLOR } from './Viewer3D';
+import Viewer3D, { KIND_COLOR, LAYERS, layerGap, type LayerKey } from './Viewer3D';
 
 interface Props {
   td: Teardown;
@@ -26,6 +26,9 @@ export default function BareBoard({ td, selectedId, onSelect }: Props) {
   const [mode, setMode] = useState<'layout' | '3d' | 'fab'>('layout');
   const [fab, setFab] = useState<{ top: string; bottom: string } | null>(null);
   const [fabError, setFabError] = useState('');
+  const [shownLayers, setShownLayers] = useState<Record<LayerKey, boolean>>(() => Object.fromEntries(LAYERS.map((l) => [l.key, true])) as Record<LayerKey, boolean>);
+  const [spread, setSpread] = useState(0);
+  const layerView = useMemo(() => ({ show: shownLayers, spread }), [shownLayers, spread]);
   const current = all[Math.min(index, all.length - 1)];
 
   // The board and what is mounted on it, as a small teardown of its own for the 3D view.
@@ -33,6 +36,9 @@ export default function BareBoard({ td, selectedId, onSelect }: Props) {
     if (!current) return null;
     const ids = new Set([current.part.id, ...current.footprints.map((f) => f.partId)]);
     const c = current.part.position;
+    // Parts lift off with the layers when they are spread: above the top silkscreen, below the bottom one.
+    const n = current.axes.n;
+    const lift = layerGap(current) * 4.5;
     return {
       ...td,
       product: { ...td.product, name: `${td.product.name} ${current.part.id}` },
@@ -40,7 +46,11 @@ export default function BareBoard({ td, selectedId, onSelect }: Props) {
         ...p,
         position: [p.position[0] - c[0], p.position[1] - c[1], p.position[2] - c[2]] as [number, number, number],
         copies: p.copies?.map((q) => [q[0] - c[0], q[1] - c[1], q[2] - c[2]] as [number, number, number]),
-        explode: [0, 0, 0] as [number, number, number],
+        explode: (() => {
+          const e: [number, number, number] = [0, 0, 0];
+          if (p.id !== current.part.id) e[n] = p.position[n] >= c[n] ? lift : -lift;
+          return e;
+        })(),
       })),
       connections: td.connections.filter((x) => ids.has(x.from) && ids.has(x.to)),
     };
@@ -136,6 +146,19 @@ export default function BareBoard({ td, selectedId, onSelect }: Props) {
           <button type="button" className="chip" aria-pressed={mode === '3d'} onClick={() => setMode('3d')}>3D</button>
           <button type="button" className="chip" aria-pressed={mode === 'fab'} onClick={() => setMode('fab')}>Fabrication preview</button>
         </div>
+        {mode === '3d' && (
+          <div className="kinds layer-chips" role="group" aria-label="Board layers">
+            {LAYERS.map((l) => (
+              <button key={l.key} type="button" className="chip" aria-pressed={shownLayers[l.key]} onClick={() => setShownLayers((v) => ({ ...v, [l.key]: !v[l.key] }))}>
+                {l.label}
+              </button>
+            ))}
+            <label className="range-row">
+              <span>Spread the layers</span>
+              <input type="range" min={0} max={1} step={0.01} value={spread} onChange={(e) => setSpread(Number(e.target.value))} />
+            </label>
+          </div>
+        )}
         {mode === 'layout' && <div className="kinds">
           <button type="button" className="chip" aria-pressed={bare} onClick={() => setBare((v) => !v)}>Bare board only</button>
           <button type="button" className="chip" aria-pressed={showCopper} onClick={() => setShowCopper((v) => !v)}>Copper traces</button>
@@ -163,7 +186,9 @@ export default function BareBoard({ td, selectedId, onSelect }: Props) {
         <div className="board-3d">
           <Viewer3D
             td={board3d}
-            explode={0}
+            explode={spread}
+            layers={layerView}
+            keepView
             selectedId={selectedId}
             onSelect={onSelect}
             kinds={{ power: showNets, ground: false, signal: showNets, rf: showNets, mechanical: false }}

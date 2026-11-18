@@ -78,9 +78,11 @@ const shot = async (name) => {
   for (let i = 0; i < 2; i++) { writeFileSync(join(OUT, `${name}.png`), Buffer.from((await send('Page.captureScreenshot', { format: 'png' })).result.data, 'base64')); await sleep(120); }
 };
 const click = async (text, scope = 'document') => js(`(() => {
-  const b = [...${scope}.querySelectorAll('button')].find((b) => b.textContent.trim() === ${JSON.stringify(text)} && !b.disabled);
+  const b = [...${scope}.querySelectorAll('button')].find((b) => !b.closest('.rail') && b.textContent.trim() === ${JSON.stringify(text)} && !b.disabled);
   if (!b) return false; b.click(); return true; })()`);
-const tab = async (label) => js(`(() => { const b = [...document.querySelectorAll('.tabs button')].find((b) => b.textContent.trim() === ${JSON.stringify(label)}); if (!b) return false; b.click(); return true; })()`);
+// Views live on the rail; each tab's full name is its accessible label.
+const tab = async (label) => js(`(() => { const b = [...document.querySelectorAll('[role=tab]')].find((b) => (b.getAttribute('aria-label') || b.textContent).trim() === ${JSON.stringify(label)}); if (!b) return false; b.click(); return true; })()`);
+const PARTS_OPEN = `(() => { const b = document.querySelector('.rail-btn[aria-pressed]'); if (b && b.getAttribute('aria-pressed') === 'false') b.click(); })()`;
 /** Waits until a condition in the page is true, so a slow machine is not mistaken for a broken app. */
 const waitFor = async (expr, ms = 15000) => {
   const end = Date.now() + ms;
@@ -117,10 +119,10 @@ const layout = async (label) => {
     // Things that are drawn off the right edge of the window.
     for (const el of document.querySelectorAll('button, input, select, textarea, h1, h2, h3, p, dd, td, th')) {
       const r = el.getBoundingClientRect();
-      if (r.width && r.right > window.innerWidth + 2 && !el.closest('.board-scroll, .powertree-scroll, .tabs, .bomtab, .bom, table')) problems.push((el.textContent || el.tagName).trim().slice(0, 40) + ' runs off the right edge');
+      if (r.width && r.right > window.innerWidth + 2 && !el.closest('.board-scroll, .powertree-scroll, .rail, .stage-controls, .bomtab, .bom, table')) problems.push((el.textContent || el.tagName).trim().slice(0, 40) + ' runs off the right edge');
     }
     // Boxes that grew a sideways scrollbar they were not meant to have.
-    const SCROLLERS = '.tabs, .board-scroll, .powertree-scroll, .bomtab, .panel, .stages, .viewer, .viewer-canvas';
+    const SCROLLERS = '.rail, .rail-tabs, .stage-controls .kinds, .board-scroll, .powertree-scroll, .bomtab, .panel, .stages, .viewer, .viewer-canvas';
     for (const el of document.querySelectorAll('div, section, ol, ul')) {
       const st = getComputedStyle(el);
       if (!/(auto|scroll)/.test(st.overflowX) || el.matches(SCROLLERS) || el.closest('.board-scroll, .powertree-scroll, .bomtab')) continue;
@@ -147,9 +149,32 @@ await send('Page.enable');
 await send('Network.enable');
 await send('Browser.setDownloadBehavior', { behavior: 'allow', downloadPath: DL });
 
+// ---------------------------------------------------------------- home page and the tour
+where = 'home';
+await go('/');
+ok(await js(`document.querySelector('h1')?.textContent.includes('Take any product apart')`), 'home page heading');
+ok(await waitFor(`!!document.querySelector('.tw canvas')`), 'home: kinetic grid draws');
+ok(await waitFor(`!!document.querySelector('.tw .viewer-canvas canvas')`), 'home: the sample model turns');
+await layout('home');
+await shot('00-home');
+where = 'tour';
+ok(await js(`(() => { const b = [...document.querySelectorAll('button')].find((b) => b.textContent.includes('Take the tour')); b?.click(); return !!b; })()`), 'home: Take the tour');
+ok(await waitFor(`!!document.getElementById('tour-title')`), 'tour opens on the sample');
+const tourTotal = Number((await js(`document.querySelector('[role=dialog] p')?.textContent`))?.match(/of (\d+)/)?.[1] ?? 0);
+ok(tourTotal >= 15, `tour has ${tourTotal} steps`);
+const titles = [];
+for (let k = 0; k < tourTotal; k++) {
+  await sleep(450);
+  titles.push(await js(`document.getElementById('tour-title')?.textContent`));
+  await js(`[...document.querySelectorAll('[role=dialog] button')].find((b) => /Next|Finish/.test(b.textContent))?.click()`);
+}
+ok(new Set(titles).size === tourTotal, 'tour: every step has its own title');
+ok(await waitFor(`!document.getElementById('tour-title')`, 3000), 'tour: Finish closes it');
+await shot('00-tour-done');
+
 // ---------------------------------------------------------------- start page
 where = 'start';
-await go('/');
+await go('/#start');
 const status = await js(`fetch('/api/status').then((r) => r.json()).catch(() => null)`);
 ok(status, 'API /api/status answers');
 ok(await js(`document.querySelector('h1')?.textContent.includes('What do you want to build')`), 'start page heading');
@@ -184,7 +209,8 @@ const visitTabs = async (label, prefix) => {
   for (const t of TABS) {
     where = `${label} › ${t}`;
     if (!(await tab(t))) { failures.push(`[${label}] tab "${t}" missing`); continue; }
-    await waitFor(`(document.querySelector('.panel')?.innerText.trim().length ?? 0) > 0 || !!document.querySelector('.panel canvas')`, 8000);
+    // A view switch is a React transition: the old view stays until the new one is ready, so wait for the new one.
+    await waitFor(`document.querySelector('.rail-tabs [aria-selected="true"]')?.getAttribute('aria-label') === ${JSON.stringify(t)} && !document.querySelector('.view-skeleton') && ((document.querySelector('.panel')?.innerText.trim().length ?? 0) > 0 || !!document.querySelector('.panel canvas'))`, 12000);
     await sleep(t === 'Exploded view' || t === 'Design' || t === 'Simulator' ? 700 : 250);
     ok(await js(`!!document.querySelector('.panel')?.children.length`), `[${where}] panel renders`);
     ok(await js(`document.querySelector('.panel')?.innerText.trim().length > 0 || !!document.querySelector('.panel canvas')`), `[${where}] panel is not empty`);
@@ -214,14 +240,14 @@ ok((await sheetAdvice()).length === 0, 'fit: no moulding advice on parts that ar
 // Interactions on the sample.
 where = 'sample › exploded view';
 await tab('Exploded view');
-await sleep(800);
-await js(`(() => { const r = document.querySelector('#explode-range'); const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; set.call(r, '0.7'); r.dispatchEvent(new Event('input', { bubbles: true })); })()`);
+ok(await waitFor(`!!document.querySelector('#explode-range')`), 'exploded view opens from the rail');
+await js(`(() => { const r = document.querySelector('#explode-range'); if (!r) return; const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; set.call(r, '0.7'); r.dispatchEvent(new Event('input', { bubbles: true })); })()`);
 await sleep(300);
 ok((await js(`document.querySelector('.explode output')?.textContent`)) === '70%', 'explode slider moves to 70%');
 for (const chip of ['Power', 'Ground', 'Volts, amps, watts', 'See-through housing']) { ok(await click(chip), `chip "${chip}" toggles`); await sleep(120); await click(chip); }
 for (const v of ['Top', 'Front', 'Side', '3D']) { ok(await click(v), `view button ${v}`); await sleep(200); }
 // Select a part from the list; the inspector follows.
-await js(`(() => { const l = [...document.querySelectorAll('.left-switch button')].find((b) => b.textContent.startsWith('Parts')); l?.click(); })()`);
+await js(PARTS_OPEN);
 await sleep(300);
 ok(await js(`(() => { const r = [...document.querySelectorAll('.partrow')].find((r) => r.textContent.includes('Class-D')); r?.click(); return !!r; })()`), 'part list row is clickable');
 await sleep(400);
@@ -248,7 +274,7 @@ for (const f of files) ok(statSync(join(DL, f)).size > 200, `download ${f} is no
 // Design tab: edit, undo, reset.
 where = 'sample › design';
 await go('/#sample:design');
-await js(`(() => { [...document.querySelectorAll('.left-switch button')].find((b) => b.textContent.startsWith('Parts'))?.click(); })()`);
+await js(PARTS_OPEN);
 await sleep(300);
 await js(`[...document.querySelectorAll('.partrow')].find((r) => r.textContent.includes('Main board'))?.click()`);
 await sleep(500);
@@ -296,6 +322,7 @@ ok(t1 !== (await js(`document.querySelector('.facts-big')?.innerText`)), 'parame
 // Bare board: modes and layers.
 where = 'sample › bare board';
 await go('/#sample:board');
+await waitFor(`!!document.querySelector('.board-scroll, .board-3d')`);
 for (const c of ['3D', 'Fabrication preview', 'Layout', 'Bottom · 0', 'Top · 13', 'PCB2', 'PCB1']) { ok(await click(c), `bare board: ${c}`); await sleep(c === 'Fabrication preview' ? 2500 : 600); }
 await click('Fabrication preview');
 await sleep(2500);
@@ -310,7 +337,7 @@ where = 'sample › guide';
 await go('/#sample:guide');
 await js(`[...document.querySelectorAll('.steps .link')].find((b) => b.textContent === 'Simulator')?.click()`);
 await sleep(600);
-ok((await js(`document.querySelector('.tabs [aria-selected="true"]')?.textContent`)) === 'Simulator', 'guide: link opens the Simulator tab');
+ok((await js(`document.querySelector('.rail-tabs [aria-selected="true"]')?.getAttribute('aria-label')`)) === 'Simulator', 'guide: link opens the Simulator tab');
 
 // The two big downloads: the product report and the everything zip.
 where = 'sample › make › report and everything';
@@ -320,6 +347,8 @@ for (const [label, ext, magic] of [['Download the report', '.pdf', '%PDF'], ['Do
   ok(await click(label), `make: "${label}" button`);
   let got = null;
   for (let i = 0; i < 100 && !got; i++) { await sleep(200); got = readdirSync(DL).find((f) => !had.has(f) && f.endsWith(ext)); }
+  // Wait until the file stops growing, so a half-written download is not read.
+  for (let i = 0, last = -1; got && i < 30; i++) { const n = statSync(join(DL, got)).size; if (n > 0 && n === last) break; last = n; await sleep(200); }
   if (ok(got, `make: "${label}" saves a ${ext} file`)) {
     const head = readFileSync(join(DL, got)).subarray(0, 4).toString('latin1');
     ok(head.startsWith(magic), `make: ${got} is a real ${ext} file`);
@@ -330,27 +359,28 @@ for (const [label, ext, magic] of [['Download the report', '.pdf', '%PDF'], ['Do
 // Make tab: the downloads work.
 where = 'sample › make';
 await go('/#sample:make');
+await waitFor(`document.querySelectorAll('.card .btn').length >= 3`);
 const n0 = readdirSync(DL).length;
 await js(`(() => { const b = [...document.querySelectorAll('.card .btn')]; b.slice(0, 3).forEach((x, i) => setTimeout(() => x.click(), i * 400)); })()`);
-await sleep(3000);
+for (let i = 0; i < 75 && readdirSync(DL).filter((f) => !f.endsWith('.crdownload')).length <= n0; i++) await sleep(200);
 ok(readdirSync(DL).length > n0, 'make: download buttons save files');
 ok(/Checks passed/.test(await js(`document.querySelector('.facts-big')?.innerText`)), 'make: checks summary shown');
 
 // ---------------------------------------------------------------- every saved project, every tab
 const projectsBefore = await js(`fetch('/api/projects').then((r) => r.json()).then((j) => j.projects.map((p) => p.id + '@' + p.updatedAt).sort().join())`);
 if (saved.length) {
-  await go('/');
+  await go('/#start');
   const projects = await js(`fetch('/api/projects').then((r) => r.json()).then((j) => j.projects)`);
   for (const [i, p] of projects.entries()) {
     where = `project "${p.title.slice(0, 30)}"`;
-    await go('/');
+    await go('/#start');
     await waitFor(`!!document.querySelector('.saved-open[data-id=${JSON.stringify(p.id)}]')`);
     const opened = await js(`(() => { const b = document.querySelector('.saved-open[data-id=${JSON.stringify(p.id)}]'); b?.click(); return !!b; })()`);
     if (!ok(opened, `[${where}] opens from the start page`)) continue;
-    await waitFor(`!!document.querySelector('.tabs, .bench-plan .worktab, .bench-plan .tab-empty')`);
+    await waitFor(`!!document.querySelector('.rail, .bench-plan .worktab, .bench-plan .tab-empty')`);
     await sleep(600);
     if (p.stage === 'design') {
-      ok(await js(`!!document.querySelector('.tabs')`), `[${where}] opens to the design`);
+      ok(await js(`!!document.querySelector('.rail')`), `[${where}] opens to the design`);
       ok(/Loaded from storage/.test(await js(`document.querySelector('.agent-scroll')?.innerText ?? ''`)), `[${where}] says it came from storage`);
       await visitTabs(`project ${i + 1}`, i < 2 ? `3${i}` : '');
       await tab('Fit and mould');

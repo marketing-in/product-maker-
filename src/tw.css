@@ -1,0 +1,24 @@
+/* Tailwind v4 for the shadcn-style components (src/components/ui) and the pages built from them.
+   Order: Tailwind's theme, then the app's own stylesheet, then Tailwind utilities, so a utility class
+   always wins on the elements that use it. Tailwind's base reset is left out: styles.css has its own.
+   Scanning is limited to the files that use Tailwind, so app class names such as "grid" or "table"
+   never turn into utilities by accident. */
+@layer theme, base, app, components, utilities;
+@import 'tailwindcss/theme.css' layer(theme);
+@import 'tailwindcss/utilities.css' layer(utilities) source(none);
+@source './components/ui';
+@source './components/Home.tsx';
+@source './components/Tour.tsx';
+@import './styles.css' layer(app);
+
+@theme {
+  --font-sans: 'Geist Sans', system-ui, sans-serif;
+  --font-mono: 'Geist Mono', ui-monospace, monospace;
+}
+
+/* The part of Tailwind's reset these pages need, kept to them (class "tw") so the app's own buttons
+   are untouched: buttons start transparent and borders are solid when a width is set. */
+@layer base {
+  .tw button, .tw input { background-color: transparent; border: 0 solid; }
+  .tw *, .tw ::before, .tw ::after { border-style: solid; border-width: 0; }
+}

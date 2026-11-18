@@ -1,5 +1,6 @@
 import { RotateCcw, Undo2 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 
 import { centreInHousing, movePart, scaleHousing, setPosition, setSize, setWall } from '../lib/edit';
 import { fitReport, type FitStatus } from '../lib/fit';
@@ -15,6 +16,8 @@ interface Props {
   canUndo: boolean;
   onReset: () => void;
   canReset: boolean;
+  /** The right panel's slot: the editing fields render there, so the stage keeps the full width. */
+  toolSlot?: HTMLElement | null;
 }
 
 const NO_WIRES: Record<ConnectionKind, boolean> = { power: false, ground: false, signal: false, rf: false, mechanical: false };
@@ -37,7 +40,8 @@ function Num({ label, value, onCommit, step = 0.5, min }: { label: string; value
   );
 }
 
-export default function Designer({ td, selectedId, onSelect, onChange, onUndo, canUndo, onReset, canReset }: Props) {
+export default function Designer({ td, selectedId, onSelect, onChange, onUndo, canUndo, onReset, canReset, toolSlot }: Props) {
+  const place = (node: ReactNode) => (toolSlot ? createPortal(node, toolSlot) : node);
   const [xray, setXray] = useState(true);
   const [withMounted, setWithMounted] = useState(true);
   const [explode, setExplode] = useState(0);
@@ -74,7 +78,7 @@ export default function Designer({ td, selectedId, onSelect, onChange, onUndo, c
         </div>
       </div>
 
-      <div className="design-panel">
+      {place(<div className="design-panel">
         {!part ? (
           <>
             <div>
@@ -137,7 +141,7 @@ export default function Designer({ td, selectedId, onSelect, onChange, onUndo, c
             </fieldset>
           </>
         )}
-      </div>
+      </div>)}
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Camera, Power, RotateCcw, Video, VideoOff, Volume2, VolumeX } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 
 import { abilities, rest, type Motion } from '../lib/abilities';
 import { controls as findControls, live, outputs, press, START, type Control, type SimState } from '../lib/behaviour';
@@ -12,6 +13,8 @@ interface Props {
   td: Teardown;
   selectedId: string | null;
   onSelect: (id: string | null) => void;
+  /** The right panel's slot: the controls render there, so the stage keeps the full width. */
+  toolSlot?: HTMLElement | null;
 }
 
 /** What the product's camera sees: your webcam if you allow it, otherwise a moving test card. */
@@ -42,9 +45,9 @@ function CameraView({ on, name }: { on: boolean; name: string }) {
       g.fillStyle = 'rgba(255,255,255,0.85)';
       g.fillRect(((t / 12) % (c.width + 40)) - 20, 0, 3, c.height * 0.72);
       g.fillStyle = '#f2f1ec';
-      g.font = '600 15px "IBM Plex Mono", monospace';
+      g.font = '600 15px "Geist Mono", monospace';
       g.fillText('TEST PATTERN', 12, c.height * 0.72 + 24);
-      g.font = '13px "IBM Plex Mono", monospace';
+      g.font = '13px "Geist Mono", monospace';
       g.fillText(new Date().toLocaleTimeString(), 12, c.height * 0.72 + 44);
       if (!still) raf = requestAnimationFrame(draw);
     };
@@ -95,7 +98,8 @@ function CameraView({ on, name }: { on: boolean; name: string }) {
 
 const WIRES: Record<ConnectionKind, boolean> = { power: true, ground: false, signal: true, rf: true, mechanical: false };
 
-export default function Simulator({ td, selectedId, onSelect }: Props) {
+export default function Simulator({ td, selectedId, onSelect, toolSlot }: Props) {
+  const place = (node: ReactNode) => (toolSlot ? createPortal(node, toolSlot) : node);
   const ctrls = useMemo(() => findControls(td), [td]);
   const outs = useMemo(() => outputs(td), [td]);
   const [state, setState] = useState<SimState>(START);
@@ -276,7 +280,7 @@ export default function Simulator({ td, selectedId, onSelect }: Props) {
         </div>
       </div>
 
-      <div className="design-panel sim-panel">
+      {place(<div className="design-panel sim-panel">
         <div>
           <h2>Operate it</h2>
           <p className="hint">
@@ -391,7 +395,7 @@ export default function Simulator({ td, selectedId, onSelect }: Props) {
             <ol className="sim-log">{log.map((l, i) => <li key={log.length - i}>{l}</li>)}</ol>
           )}
         </section>
-      </div>
+      </div>)}
     </div>
   );
 }

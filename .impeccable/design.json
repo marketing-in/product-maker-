@@ -1,0 +1,693 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-18T06:26:00.572Z",
+  "title": "Design System: Teardown Lab",
+  "extensions": {
+    "colorMeta": {
+      "stage": {
+        "role": "neutral",
+        "displayName": "Stage Black",
+        "canonical": "oklch(15.5% 0.012 256)",
+        "tonalRamp": [
+          "oklch(15% 0.004 256)",
+          "oklch(26% 0.005 256)",
+          "oklch(37% 0.008 256)",
+          "oklch(48% 0.011 256)",
+          "oklch(59% 0.012 256)",
+          "oklch(70% 0.009 256)",
+          "oklch(82% 0.005 256)",
+          "oklch(95% 0.004 256)"
+        ]
+      },
+      "sunk": {
+        "role": "neutral",
+        "displayName": "Sunk Graphite",
+        "canonical": "oklch(16.5% 0.012 256)",
+        "tonalRamp": [
+          "oklch(15% 0.004 256)",
+          "oklch(26% 0.005 256)",
+          "oklch(37% 0.008 256)",
+          "oklch(48% 0.011 256)",
+          "oklch(59% 0.012 256)",
+          "oklch(70% 0.009 256)",
+          "oklch(82% 0.005 256)",
+          "oklch(95% 0.004 256)"
+        ]
+      },
+      "paper": {
+        "role": "neutral",
+        "displayName": "Paper Graphite",
+        "canonical": "oklch(18% 0.012 256)",
+        "tonalRamp": [
+          "oklch(15% 0.004 256)",
+          "oklch(26% 0.005 256)",
+          "oklch(37% 0.008 256)",
+          "oklch(48% 0.011 256)",
+          "oklch(59% 0.012 256)",
+          "oklch(70% 0.009 256)",
+          "oklch(82% 0.005 256)",
+          "oklch(95% 0.004 256)"
+        ]
+      },
+      "panel": {
+        "role": "neutral",
+        "displayName": "Panel Graphite",
+        "canonical": "oklch(20.5% 0.013 256)",
+        "tonalRamp": [
+          "oklch(15% 0.004 256)",
+          "oklch(26% 0.005 256)",
+          "oklch(37% 0.009 256)",
+          "oklch(48% 0.012 256)",
+          "oklch(59% 0.013 256)",
+          "oklch(70% 0.010 256)",
+          "oklch(82% 0.006 256)",
+          "oklch(95% 0.004 256)"
+        ]
+      },
+      "tray": {
+        "role": "neutral",
+        "displayName": "Tray Graphite",
+        "canonical": "oklch(22.5% 0.014 256)",
+        "tonalRamp": [
+          "oklch(15% 0.004 256)",
+          "oklch(26% 0.006 256)",
+          "oklch(37% 0.009 256)",
+          "oklch(48% 0.013 256)",
+          "oklch(59% 0.014 256)",
+          "oklch(70% 0.011 256)",
+          "oklch(82% 0.006 256)",
+          "oklch(95% 0.004 256)"
+        ]
+      },
+      "raised": {
+        "role": "neutral",
+        "displayName": "Raised Graphite",
+        "canonical": "oklch(24.5% 0.014 256)",
+        "tonalRamp": [
+          "oklch(15% 0.004 256)",
+          "oklch(26% 0.006 256)",
+          "oklch(37% 0.009 256)",
+          "oklch(48% 0.013 256)",
+          "oklch(59% 0.014 256)",
+          "oklch(70% 0.011 256)",
+          "oklch(82% 0.006 256)",
+          "oklch(95% 0.004 256)"
+        ]
+      },
+      "hover": {
+        "role": "neutral",
+        "displayName": "Hover Graphite",
+        "canonical": "oklch(27.5% 0.015 256)",
+        "tonalRamp": [
+          "oklch(15% 0.004 256)",
+          "oklch(26% 0.006 256)",
+          "oklch(37% 0.010 256)",
+          "oklch(48% 0.014 256)",
+          "oklch(59% 0.015 256)",
+          "oklch(70% 0.011 256)",
+          "oklch(82% 0.007 256)",
+          "oklch(95% 0.004 256)"
+        ]
+      },
+      "rule": {
+        "role": "neutral",
+        "displayName": "Hairline",
+        "canonical": "oklch(28.5% 0.012 256)",
+        "tonalRamp": [
+          "oklch(15% 0.004 256)",
+          "oklch(26% 0.005 256)",
+          "oklch(37% 0.008 256)",
+          "oklch(48% 0.011 256)",
+          "oklch(59% 0.012 256)",
+          "oklch(70% 0.009 256)",
+          "oklch(82% 0.005 256)",
+          "oklch(95% 0.004 256)"
+        ]
+      },
+      "rule-2": {
+        "role": "neutral",
+        "displayName": "Control Edge",
+        "canonical": "oklch(36% 0.013 256)",
+        "tonalRamp": [
+          "oklch(15% 0.004 256)",
+          "oklch(26% 0.005 256)",
+          "oklch(37% 0.009 256)",
+          "oklch(48% 0.012 256)",
+          "oklch(59% 0.013 256)",
+          "oklch(70% 0.010 256)",
+          "oklch(82% 0.006 256)",
+          "oklch(95% 0.004 256)"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "oklch(94% 0.006 85)",
+        "tonalRamp": [
+          "oklch(15% 0.004 85)",
+          "oklch(26% 0.004 85)",
+          "oklch(37% 0.004 85)",
+          "oklch(48% 0.006 85)",
+          "oklch(59% 0.006 85)",
+          "oklch(70% 0.005 85)",
+          "oklch(82% 0.004 85)",
+          "oklch(95% 0.004 85)"
+        ]
+      },
+      "ink-2": {
+        "role": "neutral",
+        "displayName": "Ink 2",
+        "canonical": "oklch(79% 0.008 85)",
+        "tonalRamp": [
+          "oklch(15% 0.004 85)",
+          "oklch(26% 0.004 85)",
+          "oklch(37% 0.005 85)",
+          "oklch(48% 0.008 85)",
+          "oklch(59% 0.008 85)",
+          "oklch(70% 0.006 85)",
+          "oklch(82% 0.004 85)",
+          "oklch(95% 0.004 85)"
+        ]
+      },
+      "ink-3": {
+        "role": "neutral",
+        "displayName": "Ink 3",
+        "canonical": "oklch(66% 0.01 85)",
+        "tonalRamp": [
+          "oklch(15% 0.004 85)",
+          "oklch(26% 0.004 85)",
+          "oklch(37% 0.007 85)",
+          "oklch(48% 0.009 85)",
+          "oklch(59% 0.010 85)",
+          "oklch(70% 0.007 85)",
+          "oklch(82% 0.005 85)",
+          "oklch(95% 0.004 85)"
+        ]
+      },
+      "on-light": {
+        "role": "neutral",
+        "displayName": "On Light",
+        "canonical": "oklch(19% 0.012 256)",
+        "tonalRamp": [
+          "oklch(15% 0.004 256)",
+          "oklch(26% 0.005 256)",
+          "oklch(37% 0.008 256)",
+          "oklch(48% 0.011 256)",
+          "oklch(59% 0.012 256)",
+          "oklch(70% 0.009 256)",
+          "oklch(82% 0.005 256)",
+          "oklch(95% 0.004 256)"
+        ]
+      },
+      "select": {
+        "role": "primary",
+        "displayName": "Selection Amber",
+        "canonical": "oklch(80% 0.155 78)",
+        "tonalRamp": [
+          "oklch(15% 0.023 78)",
+          "oklch(26% 0.062 78)",
+          "oklch(37% 0.105 78)",
+          "oklch(48% 0.147 78)",
+          "oklch(59% 0.155 78)",
+          "oklch(70% 0.116 78)",
+          "oklch(82% 0.070 78)",
+          "oklch(95% 0.023 78)"
+        ]
+      },
+      "select-soft": {
+        "role": "primary",
+        "displayName": "Selected Wash",
+        "canonical": "oklch(31% 0.06 78)",
+        "tonalRamp": [
+          "oklch(15% 0.009 78)",
+          "oklch(26% 0.024 78)",
+          "oklch(37% 0.041 78)",
+          "oklch(48% 0.057 78)",
+          "oklch(59% 0.060 78)",
+          "oklch(70% 0.045 78)",
+          "oklch(82% 0.027 78)",
+          "oklch(95% 0.009 78)"
+        ]
+      },
+      "warn": {
+        "role": "tertiary",
+        "displayName": "Check Coral",
+        "canonical": "oklch(76% 0.12 35)",
+        "tonalRamp": [
+          "oklch(15% 0.018 35)",
+          "oklch(26% 0.048 35)",
+          "oklch(37% 0.081 35)",
+          "oklch(48% 0.114 35)",
+          "oklch(59% 0.120 35)",
+          "oklch(70% 0.090 35)",
+          "oklch(82% 0.054 35)",
+          "oklch(95% 0.018 35)"
+        ]
+      },
+      "warn-soft": {
+        "role": "tertiary",
+        "displayName": "Check Coral Wash",
+        "canonical": "oklch(28% 0.05 35)",
+        "tonalRamp": [
+          "oklch(15% 0.007 35)",
+          "oklch(26% 0.020 35)",
+          "oklch(37% 0.034 35)",
+          "oklch(48% 0.048 35)",
+          "oklch(59% 0.050 35)",
+          "oklch(70% 0.038 35)",
+          "oklch(82% 0.023 35)",
+          "oklch(95% 0.007 35)"
+        ]
+      },
+      "warn-rule": {
+        "role": "tertiary",
+        "displayName": "Check Coral Edge",
+        "canonical": "oklch(46% 0.09 35)",
+        "tonalRamp": [
+          "oklch(15% 0.013 35)",
+          "oklch(26% 0.036 35)",
+          "oklch(37% 0.061 35)",
+          "oklch(48% 0.085 35)",
+          "oklch(59% 0.090 35)",
+          "oklch(70% 0.068 35)",
+          "oklch(82% 0.041 35)",
+          "oklch(95% 0.013 35)"
+        ]
+      },
+      "danger": {
+        "role": "tertiary",
+        "displayName": "Fault Red",
+        "canonical": "oklch(72% 0.16 28)",
+        "tonalRamp": [
+          "oklch(15% 0.024 28)",
+          "oklch(26% 0.064 28)",
+          "oklch(37% 0.108 28)",
+          "oklch(48% 0.152 28)",
+          "oklch(59% 0.160 28)",
+          "oklch(70% 0.120 28)",
+          "oklch(82% 0.072 28)",
+          "oklch(95% 0.024 28)"
+        ]
+      },
+      "danger-soft": {
+        "role": "tertiary",
+        "displayName": "Fault Red Wash",
+        "canonical": "oklch(27% 0.07 28)",
+        "tonalRamp": [
+          "oklch(15% 0.011 28)",
+          "oklch(26% 0.028 28)",
+          "oklch(37% 0.047 28)",
+          "oklch(48% 0.067 28)",
+          "oklch(59% 0.070 28)",
+          "oklch(70% 0.053 28)",
+          "oklch(82% 0.032 28)",
+          "oklch(95% 0.011 28)"
+        ]
+      },
+      "danger-rule": {
+        "role": "tertiary",
+        "displayName": "Fault Red Edge",
+        "canonical": "oklch(42% 0.11 28)",
+        "tonalRamp": [
+          "oklch(15% 0.017 28)",
+          "oklch(26% 0.044 28)",
+          "oklch(37% 0.074 28)",
+          "oklch(48% 0.104 28)",
+          "oklch(59% 0.110 28)",
+          "oklch(70% 0.083 28)",
+          "oklch(82% 0.050 28)",
+          "oklch(95% 0.017 28)"
+        ]
+      },
+      "ok": {
+        "role": "tertiary",
+        "displayName": "Pass Green",
+        "canonical": "oklch(77% 0.13 158)",
+        "tonalRamp": [
+          "oklch(15% 0.019 158)",
+          "oklch(26% 0.052 158)",
+          "oklch(37% 0.088 158)",
+          "oklch(48% 0.123 158)",
+          "oklch(59% 0.130 158)",
+          "oklch(70% 0.098 158)",
+          "oklch(82% 0.059 158)",
+          "oklch(95% 0.019 158)"
+        ]
+      },
+      "power-flow": {
+        "role": "secondary",
+        "displayName": "Power Flow Orange",
+        "canonical": "#e0603a",
+        "tonalRamp": [
+          "oklch(15% 0.025 37)",
+          "oklch(26% 0.068 37)",
+          "oklch(37% 0.114 37)",
+          "oklch(48% 0.160 37)",
+          "oklch(59% 0.169 37)",
+          "oklch(70% 0.127 37)",
+          "oklch(82% 0.076 37)",
+          "oklch(95% 0.025 37)"
+        ]
+      },
+      "wire-power": {
+        "role": "secondary",
+        "displayName": "Power Wire",
+        "canonical": "#c4421c",
+        "tonalRamp": [
+          "oklch(15% 0.026 36)",
+          "oklch(26% 0.069 36)",
+          "oklch(37% 0.117 36)",
+          "oklch(48% 0.164 36)",
+          "oklch(59% 0.173 36)",
+          "oklch(70% 0.130 36)",
+          "oklch(82% 0.078 36)",
+          "oklch(95% 0.026 36)"
+        ]
+      },
+      "wire-ground": {
+        "role": "secondary",
+        "displayName": "Ground Wire",
+        "canonical": "#8b929b",
+        "tonalRamp": [
+          "oklch(15% 0.004 253)",
+          "oklch(26% 0.005 253)",
+          "oklch(37% 0.008 253)",
+          "oklch(48% 0.012 253)",
+          "oklch(59% 0.012 253)",
+          "oklch(70% 0.009 253)",
+          "oklch(82% 0.006 253)",
+          "oklch(95% 0.004 253)"
+        ]
+      },
+      "wire-signal": {
+        "role": "secondary",
+        "displayName": "Signal Wire",
+        "canonical": "#2a5fb0",
+        "tonalRamp": [
+          "oklch(15% 0.021 259)",
+          "oklch(26% 0.056 259)",
+          "oklch(37% 0.095 259)",
+          "oklch(48% 0.134 259)",
+          "oklch(59% 0.141 259)",
+          "oklch(70% 0.106 259)",
+          "oklch(82% 0.063 259)",
+          "oklch(95% 0.021 259)"
+        ]
+      },
+      "wire-rf": {
+        "role": "secondary",
+        "displayName": "RF Wire",
+        "canonical": "#12827a",
+        "tonalRamp": [
+          "oklch(15% 0.014 187)",
+          "oklch(26% 0.037 187)",
+          "oklch(37% 0.062 187)",
+          "oklch(48% 0.087 187)",
+          "oklch(59% 0.092 187)",
+          "oklch(70% 0.069 187)",
+          "oklch(82% 0.041 187)",
+          "oklch(95% 0.014 187)"
+        ]
+      },
+      "wire-mechanical": {
+        "role": "secondary",
+        "displayName": "Mechanical Link",
+        "canonical": "#8f8a7f",
+        "tonalRamp": [
+          "oklch(15% 0.004 86)",
+          "oklch(26% 0.007 86)",
+          "oklch(37% 0.012 86)",
+          "oklch(48% 0.016 86)",
+          "oklch(59% 0.017 86)",
+          "oklch(70% 0.013 86)",
+          "oklch(82% 0.008 86)",
+          "oklch(95% 0.004 86)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "The start screen heading only."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "The selected part's name at the top of Details."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "View headings: power tree loads, firmware, work tabs, the design panel."
+      },
+      "title-small": {
+        "displayName": "Title Small",
+        "purpose": "Parts list heading, card and block titles, guide steps."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "All interface text and chat. Long text caps at 62 to 72ch."
+      },
+      "body-small": {
+        "displayName": "Body Small",
+        "purpose": "Secondary text, hints, table headers, chips."
+      },
+      "label": {
+        "displayName": "Rail Label",
+        "purpose": "The short view names under rail icons."
+      },
+      "data": {
+        "displayName": "Data",
+        "purpose": "Every measured or counted value: designators, V, A, W, mm, quantities, percentages. Tabular figures."
+      },
+      "data-label": {
+        "displayName": "Data Label",
+        "purpose": "Wire values in the 3D overlay."
+      }
+    },
+    "shadows": [
+      {
+        "name": "float",
+        "value": "0 16px 36px -14px oklch(0% 0 0 / 0.7), 0 2px 8px -2px oklch(0% 0 0 / 0.45)",
+        "purpose": "The only shadow: floating tool tray, design bar, live-build note, view cube, export menu, and the parts tray when it floats below 860px."
+      },
+      {
+        "name": "cursor",
+        "value": "drop-shadow(0 2px 4px oklch(0% 0 0 / 0.45))",
+        "purpose": "Filter on live-build agent cursors so they read over any part."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-out",
+        "value": "cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "The one easing curve for state changes, entrances and presses."
+      },
+      {
+        "name": "press",
+        "value": "120ms ease-out; transform: scale(0.97) on :active",
+        "purpose": "Buttons, chips, rail buttons, icon buttons and view-cube buttons give way on press; colour transitions share the 120ms."
+      },
+      {
+        "name": "view-in",
+        "value": "220ms ease-out; opacity 0 to 1, translateY 4px to 0",
+        "purpose": "A view arriving after a rail switch. Chat messages use the same at 240ms."
+      },
+      {
+        "name": "tray-in-left",
+        "value": "200ms ease-out; translateX -10px to 0",
+        "purpose": "The parts tray opening."
+      },
+      {
+        "name": "tray-in-up",
+        "value": "300ms ease-out, 80ms delay; translate -50% 8px to -50% 0",
+        "purpose": "The floating tool tray, design bar and live note rising into place."
+      },
+      {
+        "name": "pop-in",
+        "value": "140ms ease-out; scale 0.97 and -4px, origin top right",
+        "purpose": "The export menu."
+      },
+      {
+        "name": "fade-in",
+        "value": "160ms ease-out",
+        "purpose": "Right-panel content swapping between Agent, Details and the tool tab."
+      },
+      {
+        "name": "explode",
+        "value": "1300ms; 1 - 2^(-9k) exponential ease-out",
+        "purpose": "The model explodes when a teardown opens, and on Play."
+      },
+      {
+        "name": "grow-in",
+        "value": "420ms per part, 45ms stagger",
+        "purpose": "Parts growing in during the live build."
+      },
+      {
+        "name": "skeleton",
+        "value": "1.2s linear shimmer",
+        "purpose": "First load of a lazily loaded view."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "transition and animation durations 0.01ms",
+        "purpose": "prefers-reduced-motion: CSS transitions and animations collapse to their end state; the viewer drops the flow dots and auto-rotate; the cursor click ring is hidden; the opening explode jumps to its end state."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "narrow-desktop",
+        "value": "1320px"
+      },
+      {
+        "name": "tablet",
+        "value": "860px"
+      },
+      {
+        "name": "mobile",
+        "value": "720px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Button",
+      "kind": "button",
+      "refersTo": "button",
+      "description": "Default graphite button, 32px high; used for most actions.",
+      "html": "<button class=\"ds-btn\">Open the sample</button>",
+      "css": ".ds-btn { display: inline-flex; align-items: center; gap: 0.4rem; height: 2rem; padding: 0 0.75rem; border: 1px solid var(--rule-2, oklch(36% 0.013 256)); border-radius: 6px; background: var(--raised, oklch(24.5% 0.014 256)); color: var(--ink, oklch(94% 0.006 85)); font: 500 0.875rem/1.45 'Geist Sans', system-ui, sans-serif; white-space: nowrap; cursor: pointer; transition: background-color 120ms cubic-bezier(0.16,1,0.3,1), border-color 120ms cubic-bezier(0.16,1,0.3,1), transform 120ms cubic-bezier(0.16,1,0.3,1); } .ds-btn:hover { background: var(--hover, oklch(27.5% 0.015 256)); border-color: var(--ink-3, oklch(66% 0.01 85)); } .ds-btn:active { background: var(--panel, oklch(20.5% 0.013 256)); transform: scale(0.97); } .ds-btn:focus-visible { outline: 2px solid var(--ink, oklch(94% 0.006 85)); outline-offset: 2px; }"
+    },
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Solid ink; the one light shape in the chrome. Start, build, send.",
+      "html": "<button class=\"ds-btn-primary\">Take it apart</button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; gap: 0.4rem; height: 2rem; padding: 0 0.75rem; border: 1px solid var(--ink, oklch(94% 0.006 85)); border-radius: 6px; background: var(--ink, oklch(94% 0.006 85)); color: var(--on-light, oklch(19% 0.012 256)); font: 500 0.875rem/1.45 'Geist Sans', system-ui, sans-serif; cursor: pointer; transition: background-color 120ms cubic-bezier(0.16,1,0.3,1), transform 120ms cubic-bezier(0.16,1,0.3,1); } .ds-btn-primary:hover { background: oklch(99% 0.004 85); border-color: oklch(99% 0.004 85); } .ds-btn-primary:active { background: var(--ink-2, oklch(79% 0.008 85)); transform: scale(0.97); } .ds-btn-primary:focus-visible { outline: 2px solid var(--ink, oklch(94% 0.006 85)); outline-offset: 2px; }"
+    },
+    {
+      "name": "Wire Kind Chip",
+      "kind": "chip",
+      "refersTo": "chip",
+      "description": "Pill toggle with aria-pressed; the kind dot carries the wire colour, the word names it.",
+      "html": "<div class=\"ds-chips\"><button class=\"ds-chip\" aria-pressed=\"true\"><span class=\"ds-dot\" style=\"background:#c4421c\"></span>Power</button><button class=\"ds-chip\" aria-pressed=\"true\"><span class=\"ds-dot\" style=\"background:#2a5fb0\"></span>Signal</button><button class=\"ds-chip\" aria-pressed=\"false\"><span class=\"ds-dot\" style=\"background:#8f8a7f\"></span>Mechanical</button></div>",
+      "css": ".ds-chips { display: flex; gap: 0.35rem; } .ds-chip { display: inline-flex; align-items: center; gap: 0.4rem; height: 1.75rem; padding: 0 0.65rem; border: 1px solid var(--rule-2, oklch(36% 0.013 256)); border-radius: 999px; background: transparent; color: var(--ink-3, oklch(66% 0.01 85)); font: 400 0.8125rem 'Geist Sans', system-ui, sans-serif; cursor: pointer; transition: background-color 120ms cubic-bezier(0.16,1,0.3,1), color 120ms cubic-bezier(0.16,1,0.3,1), transform 120ms cubic-bezier(0.16,1,0.3,1); } .ds-chip:hover { color: var(--ink, oklch(94% 0.006 85)); border-color: var(--ink-3, oklch(66% 0.01 85)); } .ds-chip:active { transform: scale(0.97); } .ds-chip[aria-pressed='true'] { background: var(--raised, oklch(24.5% 0.014 256)); color: var(--ink, oklch(94% 0.006 85)); border-color: oklch(52% 0.012 256); font-weight: 500; } .ds-chip[aria-pressed='false'] .ds-dot { opacity: 0.35; } .ds-chip:focus-visible { outline: 2px solid var(--ink, oklch(94% 0.006 85)); outline-offset: 2px; } .ds-dot { width: 0.55rem; height: 0.55rem; border-radius: 50%; flex: none; }"
+    },
+    {
+      "name": "View Rail",
+      "kind": "nav",
+      "refersTo": "rail-button",
+      "description": "64px column of views: icon over a short name, the active view on a lifted pill.",
+      "html": "<nav class=\"ds-rail\"><button class=\"ds-rail-btn\" aria-selected=\"true\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z\"/><path d=\"m3.3 7 8.7 5 8.7-5\"/><path d=\"M12 22V12\"/></svg><span>Model</span></button><button class=\"ds-rail-btn\" aria-selected=\"false\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z\"/></svg><span>Power</span></button></nav>",
+      "css": ".ds-rail { display: flex; flex-direction: column; gap: 2px; width: 4rem; padding: 0.5rem 0.4rem; background: var(--panel, oklch(20.5% 0.013 256)); border-right: 1px solid var(--rule, oklch(28.5% 0.012 256)); } .ds-rail-btn { display: grid; justify-items: center; gap: 0.2rem; width: 100%; padding: 0.5rem 0 0.42rem; border: 0; border-radius: 8px; background: none; color: var(--ink-3, oklch(66% 0.01 85)); font: 500 0.6875rem/1.1 'Geist Sans', system-ui, sans-serif; letter-spacing: 0.005em; cursor: pointer; transition: background-color 120ms cubic-bezier(0.16,1,0.3,1), color 120ms cubic-bezier(0.16,1,0.3,1), transform 120ms cubic-bezier(0.16,1,0.3,1); } .ds-rail-btn:hover { background: var(--raised, oklch(24.5% 0.014 256)); color: var(--ink, oklch(94% 0.006 85)); } .ds-rail-btn[aria-selected='true'] { background: var(--hover, oklch(27.5% 0.015 256)); color: var(--ink, oklch(94% 0.006 85)); } .ds-rail-btn:active { transform: scale(0.97); } .ds-rail-btn:focus-visible { outline: 2px solid var(--ink, oklch(94% 0.006 85)); outline-offset: -2px; }"
+    },
+    {
+      "name": "Side Tabs",
+      "kind": "nav",
+      "refersTo": "side-tab",
+      "description": "Equal-width tabs at the top of the right panel: Edit or Operate (on those views), Agent, Details.",
+      "html": "<div class=\"ds-side-tabs\" role=\"tablist\"><button role=\"tab\" aria-selected=\"true\">Agent</button><button role=\"tab\" aria-selected=\"false\">Details</button></div>",
+      "css": ".ds-side-tabs { display: flex; gap: 0.25rem; padding: 0.45rem; width: 22rem; background: var(--panel, oklch(20.5% 0.013 256)); border-bottom: 1px solid var(--rule, oklch(28.5% 0.012 256)); } .ds-side-tabs button { flex: 1; height: 1.9rem; border: 0; border-radius: 6px; background: none; color: var(--ink-3, oklch(66% 0.01 85)); font: 500 0.875rem 'Geist Sans', system-ui, sans-serif; cursor: pointer; transition: background-color 120ms cubic-bezier(0.16,1,0.3,1), color 120ms cubic-bezier(0.16,1,0.3,1); } .ds-side-tabs button:hover { color: var(--ink, oklch(94% 0.006 85)); background: var(--raised, oklch(24.5% 0.014 256)); } .ds-side-tabs button[aria-selected='true'] { background: var(--hover, oklch(27.5% 0.015 256)); color: var(--ink, oklch(94% 0.006 85)); } .ds-side-tabs button:focus-visible { outline: 2px solid var(--ink, oklch(94% 0.006 85)); outline-offset: 2px; }"
+    },
+    {
+      "name": "Search Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Sunk field with a leading icon; the edge turns ink on focus. Filters the parts list.",
+      "html": "<label class=\"ds-search\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"11\" cy=\"11\" r=\"8\"/><path d=\"m21 21-4.3-4.3\"/></svg><input type=\"search\" placeholder=\"Filter by name, reference or chip\"></label>",
+      "css": ".ds-search { position: relative; display: block; width: 15.5rem; } .ds-search svg { position: absolute; left: 0.6rem; top: 50%; translate: 0 -50%; color: var(--ink-3, oklch(66% 0.01 85)); pointer-events: none; } .ds-search input { width: 100%; height: 2rem; padding: 0 0.6rem 0 1.9rem; border: 1px solid var(--rule-2, oklch(36% 0.013 256)); border-radius: 6px; background: var(--sunk, oklch(16.5% 0.012 256)); color: var(--ink, oklch(94% 0.006 85)); font: 400 0.8125rem 'Geist Sans', system-ui, sans-serif; caret-color: var(--ink, oklch(94% 0.006 85)); } .ds-search input::placeholder { color: var(--ink-3, oklch(66% 0.01 85)); opacity: 1; } .ds-search input:focus-visible { outline: none; border-color: var(--ink, oklch(94% 0.006 85)); }"
+    },
+    {
+      "name": "Floating Tool Tray",
+      "kind": "custom",
+      "refersTo": "floating-tray",
+      "description": "The signature: the one place controls sit on the model, docked bottom-centre with the Float shadow.",
+      "html": "<div class=\"ds-tray\"><div class=\"ds-tray-row\"><span class=\"ds-tray-label\">Explode</span><span class=\"ds-track\"><span></span></span><span class=\"ds-num\">62%</span><button class=\"ds-tray-chip\" aria-pressed=\"true\">Volts, amps, watts</button><button class=\"ds-tray-chip\" aria-pressed=\"false\">See-through housing</button></div><div class=\"ds-tray-row ds-tray-kinds\"><button class=\"ds-tray-chip\" aria-pressed=\"true\"><i style=\"background:#c4421c\"></i>Power</button><button class=\"ds-tray-chip\" aria-pressed=\"true\"><i style=\"background:#2a5fb0\"></i>Signal</button><button class=\"ds-tray-chip\" aria-pressed=\"true\"><i style=\"background:#12827a\"></i>RF</button></div></div>",
+      "css": ".ds-tray { display: grid; gap: 0.4rem; width: max-content; padding: 0.4rem 0.5rem 0.45rem; background: var(--tray, oklch(22.5% 0.014 256)); border: 1px solid var(--rule-2, oklch(36% 0.013 256)); border-radius: 8px; box-shadow: 0 16px 36px -14px oklch(0% 0 0 / 0.7), 0 2px 8px -2px oklch(0% 0 0 / 0.45); color: var(--ink, oklch(94% 0.006 85)); font: 400 0.875rem 'Geist Sans', system-ui, sans-serif; } .ds-tray-row { display: flex; align-items: center; gap: 0.4rem 0.55rem; } .ds-tray-kinds { justify-content: center; padding-top: 0.45rem; border-top: 1px solid var(--rule, oklch(28.5% 0.012 256)); } .ds-tray-label { font-weight: 500; } .ds-track { position: relative; width: 8.5rem; height: 4px; border-radius: 2px; background: var(--rule-2, oklch(36% 0.013 256)); } .ds-track span { position: absolute; inset: 0 38% 0 0; border-radius: 2px; background: var(--ink-2, oklch(79% 0.008 85)); } .ds-num { width: 2.6rem; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 0.8125rem; font-variant-numeric: tabular-nums; color: var(--ink-2, oklch(79% 0.008 85)); } .ds-tray-chip { display: inline-flex; align-items: center; gap: 0.4rem; height: 1.75rem; padding: 0 0.65rem; border: 1px solid var(--rule-2, oklch(36% 0.013 256)); border-radius: 999px; background: transparent; color: var(--ink-3, oklch(66% 0.01 85)); font: inherit; font-size: 0.8125rem; cursor: pointer; transition: background-color 120ms cubic-bezier(0.16,1,0.3,1), color 120ms cubic-bezier(0.16,1,0.3,1); } .ds-tray-chip:hover { color: var(--ink, oklch(94% 0.006 85)); border-color: var(--ink-3, oklch(66% 0.01 85)); } .ds-tray-chip[aria-pressed='true'] { background: var(--raised, oklch(24.5% 0.014 256)); color: var(--ink, oklch(94% 0.006 85)); border-color: oklch(52% 0.012 256); font-weight: 500; } .ds-tray-chip:focus-visible { outline: 2px solid var(--ink, oklch(94% 0.006 85)); outline-offset: 2px; } .ds-tray-chip i { width: 0.55rem; height: 0.55rem; border-radius: 50%; }"
+    },
+    {
+      "name": "3D Labels",
+      "kind": "custom",
+      "refersTo": "part-label",
+      "description": "Labels over the model: amber plate for the selected part, ink plate on hover, mono wire values with a kind dot.",
+      "html": "<div class=\"ds-labels\"><span class=\"ds-part-label\">Lens bezel and cover glass</span><span class=\"ds-hover-label\">Main processor board</span><span class=\"ds-wire-label\"><i></i>3.3 V · 250 mA · 800 mW</span></div>",
+      "css": ".ds-labels { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; padding: 1rem; background: var(--stage, oklch(15.5% 0.012 256)); } .ds-part-label, .ds-hover-label { padding: 0.15rem 0.5rem; border-radius: 4px; font: 600 0.75rem 'Geist Sans', system-ui, sans-serif; color: var(--on-light, oklch(19% 0.012 256)); white-space: nowrap; } .ds-part-label { background: var(--select, oklch(80% 0.155 78)); } .ds-hover-label { background: var(--ink, oklch(94% 0.006 85)); font-weight: 500; border: 1px solid oklch(98.8% 0.004 85 / 0.3); } .ds-wire-label { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.05rem 0.4rem; border: 1px solid var(--rule-2, oklch(36% 0.013 256)); border-radius: 4px; background: oklch(20.5% 0.013 256 / 0.92); color: var(--ink, oklch(94% 0.006 85)); font: 400 0.6875rem/1.5 'Geist Mono', ui-monospace, monospace; white-space: nowrap; } .ds-wire-label i { width: 0.4rem; height: 0.4rem; border-radius: 50%; background: #c4421c; }"
+    },
+    {
+      "name": "Confidence Mark",
+      "kind": "custom",
+      "refersTo": "",
+      "description": "12px disc: full observed, half inferred, empty assumed. Always with its word.",
+      "html": "<div class=\"ds-legend\"><span class=\"ds-conf\"><svg viewBox=\"0 0 12 12\" width=\"12\" height=\"12\"><circle cx=\"6\" cy=\"6\" r=\"4.75\" fill=\"currentColor\" stroke=\"currentColor\" stroke-width=\"1.5\"/></svg>Observed</span><span class=\"ds-conf\"><svg viewBox=\"0 0 12 12\" width=\"12\" height=\"12\"><circle cx=\"6\" cy=\"6\" r=\"4.75\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\"/><path d=\"M6 1.25a4.75 4.75 0 0 0 0 9.5z\" fill=\"currentColor\"/></svg>Inferred</span><span class=\"ds-conf\"><svg viewBox=\"0 0 12 12\" width=\"12\" height=\"12\"><circle cx=\"6\" cy=\"6\" r=\"4.75\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\"/></svg>Assumed</span></div>",
+      "css": ".ds-legend { display: flex; gap: 0.9rem; padding: 0.55rem 1rem; background: var(--panel, oklch(20.5% 0.013 256)); border-top: 1px solid var(--rule, oklch(28.5% 0.012 256)); } .ds-conf { display: inline-flex; align-items: center; gap: 0.35rem; color: var(--ink-2, oklch(79% 0.008 85)); font: 400 0.75rem 'Geist Sans', system-ui, sans-serif; } .ds-conf svg { flex: none; }"
+    },
+    {
+      "name": "Check Tags",
+      "kind": "chip",
+      "refersTo": "tag-check",
+      "description": "Pill tags for check results in the agent panel and Make view: pass green, check coral, fail red, note dashed.",
+      "html": "<div class=\"ds-tags\"><span class=\"ds-tag ds-tag-pass\">Pass</span><span class=\"ds-tag ds-tag-warn\">Check</span><span class=\"ds-tag ds-tag-fail\">Fail</span><span class=\"ds-tag ds-tag-info\">Note</span></div>",
+      "css": ".ds-tags { display: flex; gap: 0.4rem; } .ds-tag { display: inline-block; padding: 0.05rem 0.45rem; border-radius: 999px; border: 1px solid var(--rule-2, oklch(36% 0.013 256)); font: 500 0.75rem 'Geist Sans', system-ui, sans-serif; white-space: nowrap; } .ds-tag-pass { color: var(--ok, oklch(77% 0.13 158)); border-color: currentColor; } .ds-tag-warn { background: var(--warn-soft, oklch(28% 0.05 35)); color: var(--warn, oklch(76% 0.12 35)); border-color: var(--warn-rule, oklch(46% 0.09 35)); } .ds-tag-fail { background: var(--danger-soft, oklch(27% 0.07 28)); color: var(--danger, oklch(72% 0.16 28)); border-color: var(--danger-rule, oklch(42% 0.11 28)); } .ds-tag-info { color: var(--ink-3, oklch(66% 0.01 85)); border-style: dashed; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Graphite Studio",
+    "overview": "Teardown Lab is a dark professional tool in the family of Flux and Figma. The exploded 3D model is the workspace: the stage runs edge to edge between a narrow icon rail on the left and a slim panel on the right, and every piece of chrome is a lifted shade of the same cool blue-black graphite. The interface recedes so the product, its parts and its wiring carry the colour.\n\nThe system is dense and quiet. Text is warm off-white on graphite, panels are separated by hairlines rather than boxes, and the only controls that sit on top of the model live in one floating tray docked bottom-centre. Hue is rationed: amber says \"selected\", the wire-kind colours say what a connection carries, and coral, red and green report check results. Everything else is graphite and ink.\n\nMotion is short and answers a change of state: a view rises 4 px as it arrives, trays slide in from their own edge, presses give way to 97%. The one long motion is the model exploding when a teardown opens. Under reduced motion the interface transitions, the flowing wire dots, auto-rotate and the live-build grow-in all drop to their end state.",
+    "keyCharacteristics": [
+      "A graphite ladder of seven surfaces, the 3D stage the deepest and floating trays and hovers the most raised.",
+      "The 3D model fills the space between the rail and the right panel; no boxed preview.",
+      "One floating tool tray per 3D view, the signature move.",
+      "Geist Sans for the interface, Geist Mono with tabular figures for every measured value.",
+      "Amber is selection only; in the chrome the wire-kind and check-state colours are the only other hues.",
+      "One soft shadow, for things that float."
+    ],
+    "rules": [
+      {
+        "name": "The Amber Means Selected Rule",
+        "body": "Amber marks the selected part, its label, its row, its node and its card, and nothing else. Focus rings are ink, warnings are coral, never amber.",
+        "section": "colors"
+      },
+      {
+        "name": "The Wire Kind Rule",
+        "body": "A connection's colour is its kind. Every view that draws a connection takes its colour from the one `KIND_COLOR` map, and every colour is repeated in words beside it (chip label, legend, table cell).",
+        "section": "colors"
+      },
+      {
+        "name": "The Graphite Ladder Rule",
+        "body": "Depth is a lightness step on the same hue, never a new colour: stage, sunk, paper, panel, tray, raised, hover, from deepest to most raised.",
+        "section": "colors"
+      },
+      {
+        "name": "The Numbers Are Data Rule",
+        "body": "Every measured or counted value (V, A, W, mm, U7, x2, 85%) is set in Geist Mono with tabular figures. Words around it stay in Geist Sans.",
+        "section": "typography"
+      },
+      {
+        "name": "The One Display Rule",
+        "body": "There is one display size and it lives on the start screen. Inside the workspace the largest text is the part name in Details.",
+        "section": "typography"
+      },
+      {
+        "name": "The Only Floaters Cast Rule",
+        "body": "A surface gets the Float shadow only when it sits on top of the model or another region. Panels, cards and rows separate with hairlines and graphite steps.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "**Do** let the 3D stage fill the space between the rail and the right panel, on `stage` (oklch(15.5% 0.012 256)).",
+      "**Do** take every surface from the graphite ladder and separate regions with 1 px `rule` hairlines.",
+      "**Do** set every measured or counted value in Geist Mono with tabular figures.",
+      "**Do** colour a connection by its kind from `KIND_COLOR` and name the kind in words beside it.",
+      "**Do** mark every part and connection observed, inferred or assumed with the full, half or empty disc and its word.",
+      "**Do** put on-model controls in the one floating tray, bottom-centre, with the Float shadow.",
+      "**Do** keep interface motion at 300 ms or less and tied to a change of state; the model's 1.3 s explode is the one long motion. Honour `prefers-reduced-motion`."
+    ],
+    "donts": [
+      "**Don't** use amber for anything but selection: not for focus, warnings, highlights or brand.",
+      "**Don't** add hues to the chrome beyond selection, the wire kinds and the check states. Hues that encode data on the model (part colours, fit classes, board copper, agent cursors) stay on the model and are named in a legend.",
+      "**Don't** box the 3D model in a card or frame it as a preview inside a page.",
+      "**Don't** give resting panels, cards or rows a shadow.",
+      "**Don't** set numbers in the sans face, or words in the mono face.",
+      "**Don't** dress an estimate as a measurement: an inferred or assumed value keeps its confidence mark."
+    ]
+  }
+}

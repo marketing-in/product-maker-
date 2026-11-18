@@ -1,5 +1,5 @@
 import { Search } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useDeferredValue, useMemo, useState } from 'react';
 
 import { CATEGORY_LABEL, CATEGORY_ORDER, type Part, type Teardown } from '../lib/types';
 import { Conf, Swatch } from './bits';
@@ -12,16 +12,18 @@ interface Props {
 
 export default function PartList({ td, selectedId, onSelect }: Props) {
   const [query, setQuery] = useState('');
+  // Typing stays instant; the list catches up a frame later on big designs.
+  const shown = useDeferredValue(query);
 
   const groups = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = shown.trim().toLowerCase();
     const match = (p: Part) =>
       !q || [p.name, p.refDes, p.function, p.package, ...(p.candidates ?? [])].some((s) => s?.toLowerCase().includes(q));
     return CATEGORY_ORDER.map((cat) => ({
       cat,
       parts: td.parts.filter((p) => p.category === cat && match(p)),
     })).filter((g) => g.parts.length > 0);
-  }, [td, query]);
+  }, [td, shown]);
 
   const total = td.parts.reduce((s, p) => s + p.qty, 0);
 
